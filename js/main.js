@@ -202,6 +202,13 @@ startBtn.addEventListener('click', () => {
   if (CONFIG.music.startOnUnlock && !music.playing) music.start();
   refreshMusicButton();
   startOverlay.hidden = true;
+  // Toàn màn hình khi live: ẩn thanh địa chỉ + thanh trạng thái để cảnh to nhất.
+  // Không ép được thì vẫn chạy bình thường (không chặn nhạc/sàn).
+  try {
+    const p = document.documentElement.requestFullscreen
+      && document.documentElement.requestFullscreen();
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (e) { /* bỏ qua */ }
 });
 
 // Demo test-only (?demo=1) — mặc định tắt.
@@ -218,6 +225,7 @@ function onResize() {
   renderer.setSize(w, h);
 }
 window.addEventListener('resize', onResize);
+document.addEventListener('fullscreenchange', () => window.setTimeout(onResize, 100));
 window.addEventListener('orientationchange', () => window.setTimeout(onResize, 300));
 
 // ---- Animation loop: delta clamp + nhịp theo BPM ----

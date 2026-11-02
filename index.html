@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Đi Bar 5.0 — Sàn nhảy 3D (bản ngang)</title>
+  <meta name="description" content="Sàn nhảy 3D bản ngang 16:9 cho live TikTok Mobile gaming. Khán giả chat/like/follow/gift lên sàn nhảy.">
+  <link rel="stylesheet" href="./css/style.css">
+  <!-- Three.js ghim cố định 0.160.0 — khớp CONFIG.three.version trong config.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Cảnh 3D ngang: sàn rộng, DJ booth trái, khu VIP phải -->
+  <main id="scene-container" aria-label="Sàn nhảy 3D"></main>
+
+  <div id="brand">ĐI BAR 5.0<small>SÀN NHẢY 3D • BẢN NGANG</small></div>
+
+  <div id="fps-counter" hidden>— FPS</div>
+
+  <aside id="top-board" aria-label="Bảng top gifter">
+    <h2>🏆 TOP GIFT</h2>
+    <div id="top-list"></div>
+  </aside>
+
+  <div id="ticker" aria-live="polite"></div>
+
+  <div id="controls">
+    <div class="row">
+      <button id="btn-music" type="button" aria-pressed="false">🔇 Nhạc: Tắt</button>
+      <button id="btn-fps" type="button" aria-pressed="false">FPS</button>
+    </div>
+    <div id="relay-status" data-status="disconnected">Relay: chưa kết nối (stub)</div>
+  </div>
+
+  <div id="demo-badge" hidden>DEMO — TEST ONLY, KHÔNG DÙNG KHI LIVE THẬT</div>
+  <!-- Nút bấm thử skill (chỉ hiện khi ?demo=1, demo.js điều khiển). -->
+  <div id="demo-controls" style="display:none;position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:20;gap:6px;flex-wrap:wrap;justify-content:center;">
+    <button id="btn-demo-rose" type="button">🌹 Tặng 1 hoa hồng</button>
+    <button id="btn-demo-grand" type="button">🎆 Tặng gift lớn</button>
+    <button id="btn-demo-add" type="button">➕ Thêm dancer</button>
+    <button id="btn-demo-auto" type="button" aria-pressed="true">⏸ Auto demo: Bật</button>
+  </div>
+  <div id="rotate-hint">📱 Xoay ngang điện thoại để xem bản ngang 16:9</div>
+
+  <!-- 1 chạm để unlock audio trên trình duyệt điện thoại -->
+  <div id="start-overlay">
+    <h1>🪩 ĐI BAR 5.0</h1>
+    <p>Sàn nhảy 3D bản ngang. Bấm Bắt đầu để bật nhạc và vào sàn.</p>
+    <button id="btn-start" type="button">Bắt đầu</button>
+    <p>Chat “nhảy”, “đổi nv”, “đi vòng” để điều khiển nhân vật của bạn.</p>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

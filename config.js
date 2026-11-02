@@ -315,6 +315,9 @@ export const CONFIG = {
         idleClip: 'models/pole-idle.clip.json', // nhảy thường, loop 12s
         skillClip: 'models/pole-skill.clip.json', // skill donate, 5s one-shot
         crossfadeSeconds: 0.3, // blend vào/ra clip skill
+        // Phóng to lên xíu (user lệnh 06:47): 1,62m → ~1,75m; chân vẫn
+        // chạm sàn (scale quanh gốc model ở gót), tay không chạm nan.
+        scale: 1.08,
       },
       // Xoay 1 vòng quanh cột (lệnh 03:22): mỗi 8 bar, xoay đúng 1 vòng
       // trong 2 bar, quay mặt vào cột lúc xoay, nhảy thường hướng ra
@@ -376,7 +379,7 @@ export const CONFIG = {
       waistbandY: 1.06,
       waistbandRadius: 0.18,
       waistbandTube: 0.02,
-      nameSpriteY: 1.9, // tên trên đầu model GLB (đỉnh đầu 1,63m)
+      nameSpriteY: 2.05, // tên trên đầu model GLB (đỉnh đầu 1,63m × scale 1,08 ≈ 1,76m)
       // Nhãn tên cô múa cột rõ hơn dàn ngoài một chút (lệnh 06:13),
       // không che mặt (đã tính cả vương miện + labelLiftY).
       labelScale: 1.15,

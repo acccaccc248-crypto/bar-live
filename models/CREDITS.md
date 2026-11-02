@@ -4,6 +4,38 @@ Cô múa cột trong lồng dùng mẫu người thật (GLB) + clip mocap, thay
 body procedural cũ (hình khối + texture phẳng). Xem `js/dancers.js`
 (`_createPoleDancer`, `_loadPoleModel`) và `CONFIG.dancers.poleDancer`.
 
+## Model HIỆN TẠI: `pole-dancer.glb` (5,84 MB) — tóc vàng + bikini (lệnh 06:47)
+
+- Nguồn: tái xuất bằng **MPFB 2** (Blender 4.2 headless) từ cùng
+  **system assets CC0** như bản trước — script:
+  `~/workspace/mpfb-scratch/build_blonde_bikini.py` (mở
+  `probe.blend`, không tạo human mới; macro/skin/rig giữ nguyên nên
+  **rig 53 xương cùng tên, 2 clip cũ chạy thẳng không remap**).
+  Giấy phép **CC0**, không cần attribution, không tài khoản.
+- **Tóc vàng:** texture tóc `long01` (2048², mesh tóc thật) được nhuộm
+  sang vàng óng bằng script PIL (`blonde_hair_diffuse.png` trong scratch:
+  hue 0.115, nâng sáng giữ vân sợi + alpha); material tóc giữ tên
+  `Human.long01`, emissive runtime đổi sang vàng óng 0x8a6a20.
+- **Đồ bikini:** KHÔNG có sẵn asset bikini trong gói CC0 — dựng 2 mảnh
+  (`Human.bikini_top`, `Human.bikini_bottom`) bằng cách nhân bản vùng
+  face của mesh thân (top: z 1,05–1,36; bottom: z ≤ 1,00, mép dưới
+  uốn theo háng 0,78–0,93), đẩy dọc normal +8mm, copy đúng vertex
+  group/weight + Armature modifier cùng rig nên bám sát cơ thể khi múa,
+  không tuột/lệch; che phủ đầy đủ kiểu đồ bơi (model MPFB vốn không có
+  chi tiết nhạy cảm, giữ nguyên). Material `Human.bikini`: hồng neon
+  #FF2E88 + emissive tím 0x8a2be2 (runtime set 0,3 như đồ cũ).
+- **Phóng to:** scale 1,08 trong `CONFIG.dancers.poleDancer.model.scale`
+  (áp lên modelRoot, chân vẫn chạm sàn) → cao ~1,75m; nhãn tên nâng
+  theo (nameSpriteY 2,05), vương miện nhân thêm scale.
+- Thông số đã kiểm chứng: 8 mesh (thân, bikini ×2, tóc, mắt, mày, mi),
+  35.804 tris (< 60k), texture 2048², GLB 5,84 MB (nén JPEG q90 như cũ;
+  tóc/mắt/mày/mi giữ PNG vì có alpha). Render kiểm chứng mắt thật:
+  cận mặt (tóc vàng rõ), toàn thân trước/sau, khung skill chân dang
+  (bikini bám chắc) — ảnh trong `~/workspace/mpfb-scratch/renders/`
+  (`bb-face.png`, `bb-full-front.png`, `bb-full-back.png`, `bb-skill.png`).
+- Bản trước (đồ thể thao, tóc nâu) giữ làm backup:
+  `pole-dancer-v2-sportsuit-backup.glb` (6,03 MB, MD5 6815194e…).
+
 ## Model: `pole-dancer.glb` (6,03 MB) — bản NÉT, thay mẫu v1 mờ
 
 - Nguồn: tự xuất bằng **MPFB 2** (MakeHuman Plugin For Blender 2.0.0,

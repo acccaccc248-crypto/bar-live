@@ -62,21 +62,22 @@ export function sampleRootYCurve(curve, time) {
 }
 
 // Làm nổi bật mẫu nữ GLB (user lệnh 06:13): da sáng hơn chút, đồ diễn
-// có emissive tím nhẹ theo texture (viền neon), tóc có highlight ấm —
-// nổi nhưng không lòe loẹt, không cháy sáng. Spotlight riêng trong
-// scene.js làm phần còn lại. Export để harness kiểm chứng được.
+// (bikini từ 06:47, trước đó là sportsuit) có emissive tím nhẹ theo
+// texture (viền neon), tóc VÀNG có highlight vàng óng — nổi nhưng không
+// lòe loẹt, không cháy sáng. Spotlight riêng trong scene.js làm phần
+// còn lại. Export để harness kiểm chứng được.
 export function brightenPoleModelMaterials(modelRoot) {
   modelRoot.traverse((o) => {
     if (!o.isMesh) return;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of mats) {
       if (!m || !m.isMeshStandardMaterial) continue;
-      if (m.name.includes('sportsuit')) {
+      if (m.name.includes('bikini') || m.name.includes('sportsuit')) {
         m.emissive = new THREE.Color(0x8a2be2);
         if (m.map) m.emissiveMap = m.map;
         m.emissiveIntensity = 0.3;
       } else if (m.name.includes('long01')) {
-        m.emissive = new THREE.Color(0x5a3a22);
+        m.emissive = new THREE.Color(0x8a6a20); // highlight vàng óng cho tóc vàng
         if (m.map) m.emissiveMap = m.map;
         m.emissiveIntensity = 0.18;
       } else if (m.name.includes('body')) {
@@ -1157,6 +1158,10 @@ export class DancerManager {
     const idleData = buildPoleClipData(idleJson);
     const skillData = buildPoleClipData(skillJson);
     const modelRoot = gltf.scene;
+    // Phóng to lên xíu (CONFIG model.scale): scale quanh gốc model ở
+    // gót chân nên chân vẫn chạm sàn; xương/tên/vương miện theo kịp vì
+    // _syncPoleHead đọc world position.
+    if (cfg.scale && cfg.scale !== 1) modelRoot.scale.setScalar(cfg.scale);
     // Mọi xương clip cần đều phải có trong rig, không thì lỗi rõ ràng.
     const need = new Set([
       ...idleData.tracks.map((t) => t.bone),
@@ -1727,10 +1732,13 @@ export class DancerManager {
     dancer.nameSprite.position.y = dancer.nameBaseY + lift;
   }
 
-  // Vương miện lên đầu người múa cột (thu nhỏ theo đầu người thật).
+  // Vương miện lên đầu người múa cột (thu nhỏ theo đầu người thật, nhân
+  // thêm scale của model để vương miện không bị lọt thỏm khi phóng to).
   _attachCrownToPole() {
     const crown = this._getCrownGroup();
-    crown.scale.setScalar(CONFIG.dancers.poleDancer.crownScale);
+    const s = CONFIG.dancers.poleDancer.crownScale
+      * (CONFIG.dancers.poleDancer.model.scale || 1);
+    crown.scale.setScalar(s);
     crown.rotation.x = 0;
     this.poleDancer.headGroup.add(crown);
     crown.visible = true;

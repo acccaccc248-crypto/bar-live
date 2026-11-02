@@ -265,14 +265,16 @@ brightenPoleModelMaterials(modelRoot);
     if (!o.isMesh) return;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of mats) {
-      if (m.name.includes('sportsuit') && m.emissiveIntensity === 0.3) suitOk = true;
+      if ((m.name.includes('bikini') || m.name.includes('sportsuit')) && m.emissiveIntensity === 0.3) suitOk = true;
       if (m.name.includes('body')) skinR = m.color.r;
     }
   });
-  check(suitOk, 'đồ diễn có emissive tím 0.3 (viền neon nhẹ)');
+  check(suitOk, 'bikini có emissive tím 0.3 (viền neon nhẹ)');
   check(skinR > 1, 'da sáng hơn (color r=' + skinR.toFixed(2) + ' > 1)');
 }
 pole.group.add(modelRoot);
+// Áp scale model như _loadPoleModel làm (lệnh 06:47: phóng to 1,08x).
+if (CONFIG.dancers.poleDancer.model.scale) modelRoot.scale.setScalar(CONFIG.dancers.poleDancer.model.scale);
 pole.modelRoot = modelRoot;
 pole.headBone = modelRoot.getObjectByName('head');
 pole.mixer = new THREE.AnimationMixer(modelRoot);

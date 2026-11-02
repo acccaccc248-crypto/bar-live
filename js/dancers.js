@@ -20,9 +20,6 @@ const GEO = {
   crownJewel: null,
 };
 
-// Vector tái dùng cho đích lerp của bước ngang (tránh cấp phát mỗi frame).
-const _scratchTarget = new THREE.Vector3();
-
 function sharedGeometries() {
   if (GEO.head) return GEO;
   const d = CONFIG.dancers;
@@ -262,6 +259,23 @@ function normalizeForMatch(text) {
     .replace(/đ/g, 'd');
 }
 
+// Quay mềm từ góc hiện tại về góc đích, tối đa maxStep radian trong 1
+// bước (đi dạo: không quay ngoắt). Góc chuẩn hoá về [-π, π] để không
+// trôi số sau nhiều giờ chạy.
+function turnToward(current, target, maxStep) {
+  let cur = current % (Math.PI * 2);
+  if (cur > Math.PI) cur -= Math.PI * 2;
+  if (cur < -Math.PI) cur += Math.PI * 2;
+  let diff = (target - cur) % (Math.PI * 2);
+  if (diff > Math.PI) diff -= Math.PI * 2;
+  if (diff < -Math.PI) diff += Math.PI * 2;
+  if (Math.abs(diff) <= maxStep) return target;
+  const next = cur + Math.sign(diff) * maxStep;
+  if (next > Math.PI) return next - Math.PI * 2;
+  if (next < -Math.PI) return next + Math.PI * 2;
+  return next;
+}
+
 // So khớp lệnh chat: không phân biệt hoa/thường/dấu, lệnh nằm trong câu.
 export function matchCommand(text) {
   const hay = normalizeForMatch(text);
@@ -357,6 +371,8 @@ export class DancerManager {
     // null = chưa có ai đội (chưa có gift). Tạo lười ở _getCrownGroup().
     this.crownGroup = null;
     this.crownedDancer = null;
+    // Giới hạn đi dạo (vùng sàn + khu cấm): tính lười ở _wanderLimits().
+    this._wanderLimitsCache = null;
   }
 
   _buildSlots() {
@@ -419,6 +435,9 @@ export class DancerManager {
     const c = d.chibi;
     const group = new THREE.Group();
     const home = this.slots[slotIndex].clone();
+    // Ô lưới góc phải có thể đè lên bục VIP: đẩy điểm xuất phát ra khỏi
+    // khu cấm ngay từ đầu (đi dạo kẹp lại sau mỗi bước anyway).
+    this._clampPointToWander(home, this._wanderLimits());
     group.position.copy(home);
     // Bắt đầu nhỏ + dưới sàn, animation bước lên sẽ nâng dần.
     // Scale đích = CONFIG.dancers.scale (nhân vật nhỏ lại, user lệnh 22:14).
@@ -541,7 +560,24 @@ export class DancerManager {
       moveStartBar: Math.floor(Math.random() * 4),
       moveBars: 2,
       moveDir: Math.random() < 0.5 ? -1 : 1,
+      // Đi dạo tự do (CONFIG.dancers.wander): hướng di chuyển + tốc độ
+      // riêng, đổi hướng mềm theo thời gian. Chỉ chạy ở mode 'dance'.
+      // stepOffset: độ lệch ngang đang áp dụng (bước ngang / lắc hông
+      // của bộ động tác) + giá trị khung trước, để dịch mượt theo
+      // hướng vuông góc với hướng đi mà không tích lũy trôi vị trí.
+      wanderHeading: Math.random() * Math.PI * 2,
+      wanderTargetHeading: 0,
+      wanderSpeed: 0,
+      wanderRetargetIn: 0,
+      stepOffset: 0,
+      stepOffsetPrev: 0,
     };
+    const wanderCfg = CONFIG.dancers.wander;
+    dancer.wanderTargetHeading = dancer.wanderHeading;
+    dancer.wanderSpeed = wanderCfg.speed
+      * (1 + (Math.random() * 2 - 1) * wanderCfg.speedVariation);
+    dancer.wanderRetargetIn = wanderCfg.retargetSecondsMin
+      + Math.random() * (wanderCfg.retargetSecondsMax - wanderCfg.retargetSecondsMin);
     return dancer;
   }
 
@@ -859,6 +895,8 @@ export class DancerManager {
     const prev = this.djDancer;
     if (prev && this.dancers.has(String(prev.user.uniqueId))) {
       prev.mode = 'dance';
+      // Về sàn thì đi dạo tiếp từ chỗ đang đứng (đi bộ về giữa sàn).
+      this._resetWanderTowardFloor(prev);
     }
     // Dancer đang ở bục VIP thì tắt spotlight nếu không còn ai ở bục.
     if (dancer.mode === 'vip') {
@@ -881,6 +919,7 @@ export class DancerManager {
     this.djDancer = null;
     if (prev && this.dancers.has(String(prev.user.uniqueId)) && prev.mode === 'dj') {
       prev.mode = 'dance';
+      this._resetWanderTowardFloor(prev);
     }
   }
 
@@ -942,8 +981,10 @@ export class DancerManager {
   }
 
   // Pose của động tác thường tại thời điểm time. Trả về các offset nhỏ,
-  // tất cả đều về 0 ở cuối động tác (về đúng ô, đúng hướng) nên không
-  // tích lũy lệch. Xoay vòng: góc tăng đều 0 → 2π trong đúng 1 động tác.
+  // tất cả đều về 0 ở cuối động tác nên không tích lũy lệch (bước ngang
+  // / lắc hông là độ lệch ngang so với đường đi dạo, áp theo hướng
+  // vuông góc với hướng đi trong update()). Xoay vòng: góc tăng đều
+  // 0 → 2π trong đúng 1 động tác.
   _movePose(dancer, time) {
     const cfg = CONFIG.dancers.danceMoves || {};
     const bpm = (CONFIG.music && CONFIG.music.bpm) || 128;
@@ -983,6 +1024,183 @@ export class DancerManager {
     return pose;
   }
 
+  // ---- Đi dạo tự do (CONFIG.dancers.wander, user lệnh 23:26) ----
+  // Vùng đi dạo suy ra từ CONFIG.floor (trừ lề) + khu cấm suy ra từ
+  // CONFIG.djTable / CONFIG.stage (có đệm): bàn DJ sau lưng, bục VIP
+  // bên phải, booth DJ bên trái. Tính 1 lần, cache lại (CONFIG tĩnh).
+  _wanderLimits() {
+    if (this._wanderLimitsCache) return this._wanderLimitsCache;
+    const w = CONFIG.dancers.wander;
+    const halfW = (CONFIG.floor.cols * CONFIG.floor.tileSize) / 2 - w.edgeMargin;
+    const halfD = (CONFIG.floor.rows * CONFIG.floor.tileSize) / 2 - w.edgeMargin;
+    const pad = w.keepOutPadding;
+    const rect = (cx, cz, sx, sz) => ({
+      minX: cx - sx / 2 - pad,
+      maxX: cx + sx / 2 + pad,
+      minZ: cz - sz / 2 - pad,
+      maxZ: cz + sz / 2 + pad,
+    });
+    this._wanderLimitsCache = {
+      minX: -halfW,
+      maxX: halfW,
+      minZ: -halfD,
+      maxZ: halfD,
+      keepOuts: [
+        // Bàn DJ sau lưng (chỉ top donor đứng, người khác không vào).
+        rect(CONFIG.djTable.position[0], CONFIG.djTable.position[2],
+          CONFIG.djTable.size[0], CONFIG.djTable.size[2]),
+        // Bục VIP bên phải.
+        rect(CONFIG.stage.vipPosition[0], CONFIG.stage.vipPosition[2],
+          CONFIG.stage.vipPlatformSize[0], CONFIG.stage.vipPlatformSize[2]),
+        // Booth DJ bên trái.
+        rect(CONFIG.stage.djPosition[0], CONFIG.stage.djPosition[2],
+          CONFIG.stage.djBoothSize[0], CONFIG.stage.djBoothSize[2]),
+      ],
+    };
+    return this._wanderLimitsCache;
+  }
+
+  // Điểm (x, z) có bị chặn không: ngoài vùng sàn hoặc trong khu cấm
+  // (nở thêm radius). radius = 0: kiểm tra đúng tâm người.
+  _wanderBlocked(x, z, limits, radius = 0) {
+    if (x < limits.minX + radius || x > limits.maxX - radius
+      || z < limits.minZ + radius || z > limits.maxZ - radius) return true;
+    for (const r of limits.keepOuts) {
+      if (x >= r.minX - radius && x <= r.maxX + radius
+        && z >= r.minZ - radius && z <= r.maxZ + radius) return true;
+    }
+    return false;
+  }
+
+  // Kẹp 1 điểm (Vector3, chỉ dùng x/z) vào vùng đi dạo: kẹp mép sàn,
+  // rồi đẩy ra khỏi khu cấm theo cạnh gần nhất.
+  _clampPointToWander(pos, limits) {
+    pos.x = Math.min(limits.maxX, Math.max(limits.minX, pos.x));
+    pos.z = Math.min(limits.maxZ, Math.max(limits.minZ, pos.z));
+    for (const r of limits.keepOuts) {
+      if (pos.x >= r.minX && pos.x <= r.maxX && pos.z >= r.minZ && pos.z <= r.maxZ) {
+        const dxMin = pos.x - r.minX;
+        const dxMax = r.maxX - pos.x;
+        const dzMin = pos.z - r.minZ;
+        const dzMax = r.maxZ - pos.z;
+        const m = Math.min(dxMin, dxMax, dzMin, dzMax);
+        if (m === dxMin) pos.x = r.minX;
+        else if (m === dxMax) pos.x = r.maxX;
+        else if (m === dzMin) pos.z = r.minZ;
+        else pos.z = r.maxZ;
+      }
+    }
+    return pos;
+  }
+
+  _clampToWander(dancer, limits) {
+    return this._clampPointToWander(dancer.group.position, limits);
+  }
+
+  // Về lại chế độ đi dạo sau khi rời bàn DJ / bục VIP / đi vòng: hướng
+  // thẳng về giữa sàn (đi bộ về, không nhảy cắt), đổi hướng ngẫu nhiên
+  // lại sau 1 giây. Reset cả độ lệch ngang để khỏi giật.
+  _resetWanderTowardFloor(dancer) {
+    const limits = this._wanderLimits();
+    const pos = dancer.group.position;
+    const cx = (limits.minX + limits.maxX) / 2;
+    const cz = (limits.minZ + limits.maxZ) / 2;
+    const heading = Math.atan2(cx - pos.x, cz - pos.z);
+    dancer.wanderHeading = heading;
+    dancer.wanderTargetHeading = heading;
+    dancer.wanderRetargetIn = 1;
+    dancer.stepOffset = 0;
+    dancer.stepOffsetPrev = 0;
+  }
+
+  // Lái hướng đi dạo 1 frame: đổi hướng ngẫu nhiên mềm theo thời gian;
+  // sắp chạm tường/vật cản thì quay về giữa sàn; đang ở ngoài vùng
+  // (vừa rời bàn DJ/bục VIP) thì đi thẳng về vùng. Trả về heading mới.
+  _steerWander(dancer, dt) {
+    const w = CONFIG.dancers.wander;
+    const limits = this._wanderLimits();
+    const pos = dancer.group.position;
+    dancer.wanderRetargetIn -= dt;
+    if (dancer.wanderRetargetIn <= 0) {
+      dancer.wanderTargetHeading = dancer.wanderHeading
+        + (Math.random() * 2 - 1) * w.retargetMaxTurn;
+      dancer.wanderRetargetIn = w.retargetSecondsMin
+        + Math.random() * (w.retargetSecondsMax - w.retargetSecondsMin);
+    }
+    let desired = dancer.wanderTargetHeading;
+    // Nhìn trước: sắp chạm tường/vật cản thì quay về giữa sàn.
+    const aheadX = pos.x + Math.sin(dancer.wanderHeading) * w.lookAhead;
+    const aheadZ = pos.z + Math.cos(dancer.wanderHeading) * w.lookAhead;
+    if (this._wanderBlocked(aheadX, aheadZ, limits, 0.25)) {
+      const cx = (limits.minX + limits.maxX) / 2;
+      const cz = (limits.minZ + limits.maxZ) / 2;
+      desired = Math.atan2(cx - pos.x, cz - pos.z)
+        + (Math.random() * 2 - 1) * 0.3;
+      dancer.wanderTargetHeading = desired;
+      dancer.wanderRetargetIn = Math.max(
+        dancer.wanderRetargetIn,
+        w.retargetSecondsMin * 0.5,
+      );
+    }
+    // Đang ở ngoài vùng thì đi thẳng về vùng (không lang thang ngoài sàn).
+    if (this._wanderBlocked(pos.x, pos.z, limits, 0)) {
+      const cx = (limits.minX + limits.maxX) / 2;
+      const cz = (limits.minZ + limits.maxZ) / 2;
+      desired = Math.atan2(cx - pos.x, cz - pos.z);
+      dancer.wanderTargetHeading = desired;
+    }
+    dancer.wanderHeading = turnToward(dancer.wanderHeading, desired, w.turnRate * dt);
+    return dancer.wanderHeading;
+  }
+
+  // Giữ khoảng cách tối thiểu giữa các dancer đang đi dạo (2 lượt nới
+  // lỏng — rẻ, 12 dancer chỉ ~10² cặp). Dancer đang chạy skill đứng yên
+  // như vật cản (chỉ đẩy người kia, không đẩy mình); DJ/VIP/rời sàn
+  // không tham gia (ở ngoài vùng đi dạo). Sau mỗi lượt, kẹp lại vào vùng.
+  _separateWanderers() {
+    const w = CONFIG.dancers.wander;
+    const limits = this._wanderLimits();
+    const movers = [...this.dancers.values()].filter(
+      (d) => d.mode === 'dance' && d.enterProgress >= 1,
+    );
+    for (let pass = 0; pass < 2; pass += 1) {
+      for (let i = 0; i < movers.length; i += 1) {
+        for (let j = i + 1; j < movers.length; j += 1) {
+          const a = movers[i];
+          const b = movers[j];
+          let dx = b.group.position.x - a.group.position.x;
+          let dz = b.group.position.z - a.group.position.z;
+          let dist = Math.hypot(dx, dz);
+          if (dist >= w.minSeparation) continue;
+          if (dist < 1e-6) {
+            // Chồng khít nhau: tách theo trục xác định (tránh NaN).
+            dx = (j % 2 === 0 ? 1 : -1) * 0.5;
+            dz = 0.5;
+            dist = Math.hypot(dx, dz);
+          }
+          const push = (w.minSeparation - dist) / 2;
+          const nx = dx / dist;
+          const nz = dz / dist;
+          const aFrozen = !!a.skillKind;
+          const bFrozen = !!b.skillKind;
+          if (!aFrozen) {
+            a.group.position.x -= nx * push * (bFrozen ? 2 : 1);
+            a.group.position.z -= nz * push * (bFrozen ? 2 : 1);
+          }
+          if (!bFrozen) {
+            b.group.position.x += nx * push * (aFrozen ? 2 : 1);
+            b.group.position.z += nz * push * (aFrozen ? 2 : 1);
+          }
+        }
+      }
+      for (const d of movers) {
+        // Dancer đang chạy skill đứng yên: không kẹp vị trí của họ.
+        if (d.skillKind) continue;
+        this._clampToWander(d, limits);
+      }
+    }
+  }
+
   update(dt, time, beatPhase) {
     const d = CONFIG.dancers;
     // Hàng đợi skill chạy trước để pose trong frame này đã đúng.
@@ -1011,19 +1229,22 @@ export class DancerManager {
 
       dancer.energy = Math.max(0, dancer.energy - d.energyDecayPerSecond * dt);
 
-      // Hết thời gian VIP / đi vòng → quay về chỗ.
+      // Hết thời gian VIP / đi vòng → quay về đi dạo (đi bộ về giữa sàn).
       if (dancer.mode === 'vip' && time >= dancer.vipUntil) {
         dancer.mode = 'dance';
+        this._resetWanderTowardFloor(dancer);
         if (![...this.dancers.values()].some((o) => o.mode === 'vip') && this.hooks.onVipSpotlight) {
           this.hooks.onVipSpotlight(false);
         }
       }
-      if (dancer.mode === 'orbit' && time >= dancer.orbitUntil) dancer.mode = 'dance';
+      if (dancer.mode === 'orbit' && time >= dancer.orbitUntil) {
+        dancer.mode = 'dance';
+        this._resetWanderTowardFloor(dancer);
+      }
 
       const swing = Math.sin(beatPhase * Math.PI * 2 + dancer.phaseOffset);
       const amp = d.bobAmplitude * (0.4 + dancer.energy);
       let y = dancer.baseY + Math.max(0, swing) * amp * 2;
-      let target = dancer.home;
       // Bộ động tác thường: tính cho mọi dancer để nhịp luôn theo bar;
       // chỉ nhánh nhảy thường (mode 'dance') mới áp offset (DJ/VIP/đi
       // vòng giữ nguyên hành vi cũ, skill đè lên rồi về lại bộ này).
@@ -1055,14 +1276,32 @@ export class DancerManager {
         group.position.y = dancer.baseY + Math.abs(swing) * amp * 0.5;
         group.rotation.y = 0;
       } else {
-        // Nhảy thường + bộ động tác đa dạng (xoay/bước/vung/bật/lắc):
-        // chỉ loanh quanh trong ô rồi về đúng ô. Skill vẫn chạy trên
-        // nhánh này (santo/tay đè lên bên dưới).
-        _scratchTarget.copy(target);
-        _scratchTarget.x += movePose.stepX;
-        group.position.lerp(_scratchTarget, Math.min(1, dt * 3));
+        // Nhảy thường + đi dạo tự do (CONFIG.dancers.wander): vừa đi
+        // vừa nhảy, đổi hướng mềm, giữ khoảng cách (tách nhau ở cuối
+        // update). Skill đóng băng di chuyển (đứng yên tại chỗ để
+        // camera lia đúng), hết skill thì đi dạo tiếp từ chỗ đang đứng.
+        // Bước ngang/lắc hông của bộ động tác: dịch ngang theo hướng
+        // vuông góc với hướng đi (không theo trục X thế giới), áp
+        // mượt từng khung để không tích lũy trôi vị trí.
+        const frozen = !!dancer.skillKind;
+        if (!frozen && dancer.enterProgress >= 1) {
+          const heading = this._steerWander(dancer, dt);
+          group.position.x += Math.sin(heading) * dancer.wanderSpeed * dt;
+          group.position.z += Math.cos(heading) * dancer.wanderSpeed * dt;
+          this._clampToWander(dancer, this._wanderLimits());
+        }
+        if (!frozen && dancer.enterProgress >= 1) {
+          const sideX = Math.cos(dancer.wanderHeading);
+          const sideZ = -Math.sin(dancer.wanderHeading);
+          dancer.stepOffset += (movePose.stepX - dancer.stepOffset) * Math.min(1, dt * 6);
+          const deltaStep = dancer.stepOffset - dancer.stepOffsetPrev;
+          dancer.stepOffsetPrev = dancer.stepOffset;
+          group.position.x += sideX * deltaStep;
+          group.position.z += sideZ * deltaStep;
+        }
         group.position.y = y + movePose.hopY;
-        group.rotation.y = movePose.spinAngle;
+        // Mặt hướng theo hướng đi + góc xoay của động tác xoay vòng.
+        group.rotation.y = dancer.wanderHeading + movePose.spinAngle;
         // Nhảy mạnh (lệnh "nhảy"): bật lên rồi rơi xuống trong 0.7s.
         if (time < dancer.jumpUntil) {
           const progress = 1 - (dancer.jumpUntil - time) / CONFIG.dancers.jumpDurationSeconds;
@@ -1145,5 +1384,8 @@ export class DancerManager {
       if (isDj) group.rotation.z = 0;
       if (somersaulting) group.rotation.z = 0;
     }
+    // Cuối frame: tách các dancer đi dạo để giữ khoảng cách tối thiểu
+    // (không chồng lấn), rồi kẹp lại vào vùng đi dạo.
+    this._separateWanderers();
   }
 }

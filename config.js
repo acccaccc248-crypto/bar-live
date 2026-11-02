@@ -188,9 +188,11 @@ export const CONFIG = {
     },
     // Bộ động tác nhảy thường (user lệnh 22:29, chê đứng 1 chỗ nhàm):
     // đổi theo ranh giới bar nhạc (4 nhịp/bar, BPM trong CONFIG.music),
-    // mỗi dancer lệch pha/ngẫu nhiên riêng, chỉ loanh quanh trong ô của
-    // mình rồi về đúng ô. Dancer bàn DJ KHÔNG làm bộ này (giữ tư thế DJ);
-    // skill đè lên động tác thường, xong skill thì về lại bộ này.
+    // mỗi dancer lệch pha/ngẫu nhiên riêng. Từ 23:26 dancer đi dạo tự
+    // do khắp sàn (CONFIG.dancers.wander): bước ngang/lắc hông dịch
+    // ngang theo hướng vuông góc với hướng đi rồi về lại đường đi,
+    // không về ô cố định nữa. Dancer bàn DJ KHÔNG làm bộ này (giữ tư
+    // thế DJ); skill đè lên động tác thường, xong skill thì về lại bộ này.
     danceMoves: {
       beatsPerBar: 4,
       // Bước ngang: dịch sang trái/phải rồi về ô (nhỏ hơn khoảng cách ô).
@@ -205,6 +207,36 @@ export const CONFIG = {
       armSweepMultiplier: 1.6,
       // Tỉ trọng chọn động tác kế (không chọn trùng động tác đang chạy).
       weights: { base: 30, spin: 15, step: 20, arms: 15, hop: 10, sway: 10 },
+    },
+    // Đi dạo tự do trên sàn (user lệnh 23:26: "đi lộn xộn nhưng có trật
+    // tự"): dancer trôi quanh sàn theo hướng ngẫu nhiên, tốc độ chậm như
+    // đi dạo, đổi hướng mềm; luôn ở trong sàn, giữ khoảng cách nhau,
+    // không vào khu bàn DJ / bục VIP / booth DJ. DJ giữ tư thế DJ,
+    // skill đè lên rồi về lại đi dạo, VIP giữ nguyên. Vùng đi dạo suy
+    // ra từ CONFIG.floor (trừ lề) + khu cấm suy ra từ CONFIG.djTable /
+    // CONFIG.stage (có đệm) — sửa sàn/bàn thì vùng tự theo, không
+    // hardcode tọa độ sàn ở đây.
+    wander: {
+      // Tốc độ đi dạo (m/giây) — chậm như đi dạo, không chạy.
+      speed: 0.35,
+      // Mỗi dancer nhanh/chậm hơn tốc độ chuẩn ±tỉ lệ này (cố định lúc
+      // tạo, để không ai giống ai).
+      speedVariation: 0.15,
+      // Tốc độ đổi hướng tối đa (rad/giây) — quay mềm, không quay ngoắt.
+      turnRate: 1.4,
+      // Đổi hướng ngẫu nhiên sau mỗi khoảng này (giây), lệch pha riêng.
+      retargetSecondsMin: 3,
+      retargetSecondsMax: 6,
+      // Góc đổi hướng ngẫu nhiên tối đa mỗi lần (±radian quanh hướng cũ).
+      retargetMaxTurn: 1.4,
+      // Khoảng cách tối thiểu giữa 2 dancer (m) — không chồng lấn nhau.
+      minSeparation: 0.7,
+      // Lề trong của sàn: không đi sát mép sàn quá lề này.
+      edgeMargin: 0.55,
+      // Đệm quanh các khu cấm (bàn DJ, bục VIP, booth DJ) khi tránh.
+      keepOutPadding: 0.35,
+      // Bán kính nhìn trước khi tránh tường/vật cản (m).
+      lookAhead: 0.5,
     },
   },
 

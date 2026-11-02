@@ -171,6 +171,89 @@ function makeFaceTexture(variant) {
       ctx.fill();
     }
     smile(cx, mouthY, 26);
+  } else if (variant === 'buon-ngu') {
+    // Buồn ngủ: mí rũ (vòm ∪) + miệng ngáp hình O.
+    const droop = (x, y, r) => {
+      ctx.beginPath();
+      ctx.arc(x, y - r * 0.4, r, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.stroke();
+    };
+    droop(cx - eyeDX, eyeY - 6, 26);
+    droop(cx + eyeDX, eyeY - 6, 26);
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(cx - eyeDX - 26, eyeY - 34);
+    ctx.lineTo(cx - eyeDX + 26, eyeY - 40);
+    ctx.moveTo(cx + eyeDX - 26, eyeY - 40);
+    ctx.lineTo(cx + eyeDX + 26, eyeY - 34);
+    ctx.stroke();
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.arc(cx, mouthY + 4, 24, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (variant === 'ngac-nhien') {
+    // Ngạc nhiên: lông mày nhướng cao, mắt tròn to, miệng O há.
+    brow(cx - eyeDX, browY - 20, 30);
+    brow(cx + eyeDX, browY - 20, 30);
+    for (const sx of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(cx + sx * eyeDX, eyeY, 14, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(cx, mouthY + 6, 30, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (variant === 'kinh-ram') {
+    // Kính râm ngầu: 2 mắt kính đen đặc + vệt sáng, miệng cười khẩy.
+    brow(cx - eyeDX, browY - 6, 30);
+    brow(cx + eyeDX, browY - 6, 30);
+    ctx.save();
+    for (const sx of [-1, 1]) {
+      const x0 = cx + sx * eyeDX - 38;
+      ctx.fillRect(x0, eyeY - 24, 76, 48);
+      // Vệt sáng chéo trên mắt kính.
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(x0 + 12, eyeY + 20);
+      ctx.lineTo(x0 + 26, eyeY + 20);
+      ctx.lineTo(x0 + 14, eyeY - 20);
+      ctx.lineTo(x0 + 2, eyeY - 20);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = INK;
+    }
+    ctx.restore();
+    // Cầu nối + càng kính.
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(cx - eyeDX + 38, eyeY - 2);
+    ctx.lineTo(cx + eyeDX - 38, eyeY - 2);
+    ctx.moveTo(cx - eyeDX - 38, eyeY - 6);
+    ctx.lineTo(cx - eyeDX - 62, eyeY - 12);
+    ctx.moveTo(cx + eyeDX + 38, eyeY - 6);
+    ctx.lineTo(cx + eyeDX + 62, eyeY - 12);
+    ctx.stroke();
+    // Miệng cười khẩy lệch.
+    ctx.beginPath();
+    ctx.moveTo(cx - 44, mouthY + 2);
+    ctx.quadraticCurveTo(cx + 8, mouthY + 24, cx + 44, mouthY - 10);
+    ctx.stroke();
+  } else if (variant === 'nguong') {
+    // Ngượng đỏ mặt: mắt híp cười + miệng cười nhỏ + 2 má hồng.
+    brow(cx - eyeDX, browY, 30);
+    brow(cx + eyeDX, browY, 30);
+    happyEye(cx - eyeDX, eyeY, 30);
+    happyEye(cx + eyeDX, eyeY, 30);
+    smile(cx, mouthY, 24);
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = '#ff8fa3';
+    for (const sx of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(cx + sx * 80, mouthY - 16, 22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   } else {
     // 'tinh-nghich': một lông mày nhướng, một mắt nháy, miệng cười lệch.
     brow(cx - eyeDX, browY, 30);

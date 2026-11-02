@@ -152,7 +152,7 @@ export const CONFIG = {
     nameLabelWidth: 1.5,
     nameLabelHeight: 0.28,
     // Nhân vật chibi meme: tóc bát úp đen, mặt trắng vẽ nét đen bằng
-    // canvas texture (4 biến thể biểu cảm, dùng chung — không asset ngoài).
+    // canvas texture (8 biến thể biểu cảm, dùng chung — không asset ngoài).
     chibi: {
       headCenterY: 1.52,
       hairRadius: 0.55,
@@ -161,9 +161,9 @@ export const CONFIG = {
       hairColor: 0x141414,
       faceCanvasSize: 512,
       faceLineColor: '#151515',
-      faceVariants: ['cuoi-ha', 'nhe-rang', 'kinh', 'tinh-nghich'],
-      // Áo thun xám (nhiều sắc độ), quần short tối màu, tay chân trắng.
-      shirtGrays: [0x9aa0a6, 0x868c93, 0xaab0b6, 0x767c84],
+      faceVariants: ['cuoi-ha', 'nhe-rang', 'kinh', 'tinh-nghich', 'buon-ngu', 'ngac-nhien', 'kinh-ram', 'nguong'],
+      // Áo thun xám (nhiều sắc độ, thêm 3 sắc trầm), quần short tối màu, tay chân trắng.
+      shirtGrays: [0x9aa0a6, 0x868c93, 0xaab0b6, 0x767c84, 0x6b7280, 0x5b6b5c, 0x4a5a6b],
       shortsColor: 0x2b2f36,
       skinWhite: 0xffffff,
       // Nhãn nhận diện viewer: avatar + tên nổi TRÊN đầu (Sprite luôn

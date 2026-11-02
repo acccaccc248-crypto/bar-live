@@ -494,11 +494,26 @@ export class DancerManager {
     return this.dancers.get(String(uniqueId)) || null;
   }
 
-  // Ghi nhận tương tác mới nhất của viewer (mọi loại event đều gọi từ
-  // handleEvent) — hết idleLeaveSeconds không tương tác thì rời sàn.
+  // Ghi nhận viewer còn xem (mọi loại event trừ 'leave' đều gọi từ
+  // handleEvent). Mọi tương tác đều hủy trạng thái "đã rời" (vào lại
+  // phòng / bình luận / thả tim sau tín hiệu rời). Im lặng KHÔNG BAO GIỜ
+  // tự đuổi khỏi sàn (user lệnh 00:43) — chỉ tín hiệu rời + 10 phút
+  // ân hạn mới cho rời (xem update()).
   markActive(uniqueId, now) {
     const dancer = this.dancers.get(String(uniqueId));
-    if (dancer) dancer.lastActivityAt = now;
+    if (dancer) {
+      dancer.lastActivityAt = now;
+      dancer.leftAt = null;
+    }
+  }
+
+  // Tín hiệu viewer rời live: bắt đầu đếm ân hạn, KHÔNG xóa ngay.
+  // Tín hiệu rời đầu tiên giữ mốc; các tín hiệu rời lặp lại không dời mốc.
+  markLeft(uniqueId, now) {
+    const dancer = this.dancers.get(String(uniqueId));
+    if (dancer && dancer.leftAt == null && dancer.mode !== 'leaving') {
+      dancer.leftAt = now;
+    }
   }
 
   addOrGet(user) {
@@ -626,9 +641,10 @@ export class DancerManager {
       phaseOffset: Math.random() * Math.PI * 2,
       enterProgress: 0,
       leaveProgress: 0,
-      // Lần tương tác gần nhất (cùng gốc thời gian với handleEvent `now`):
-      // quá idleLeaveSeconds không có event nào thì rời sàn (out live ~5p).
+      // Lần tương tác gần nhất (cùng gốc thời gian với handleEvent `now`).
       lastActivityAt: performance.now() / 1000,
+      // Mốc tín hiệu rời live (null = đang xem). Chỉ tín hiệu rời mới đặt.
+      leftAt: null,
       orbitUntil: 0,
       orbitAngle: Math.random() * Math.PI * 2,
       jumpUntil: 0,
@@ -1320,12 +1336,13 @@ export class DancerManager {
         continue;
       }
 
-      // Out live ~5 phút không tương tác thì rời sàn (user lệnh 00:01).
+      // Chỉ người ĐÃ RỜI live mới rời sàn, sau leaveGraceSeconds ân hạn
+      // (user lệnh 00:43). Người còn xem — dù im lặng bao lâu — vẫn ở lại.
       // Mọi mode đều áp (DJ/VIP cũng vậy; đường rời sàn sẵn có tự dọn
-      // vương miện + bàn DJ). Skill/lệnh mới nhất đều đã refresh
-      // lastActivityAt nên không thể hết hạn giữa chừng (skill ≤ ~30s).
-      const idleSeconds = d.idleLeaveSeconds || 300;
-      if (time - (dancer.lastActivityAt ?? time) > idleSeconds) {
+      // vương miện + bàn DJ). Tín hiệu rời giữa chừng (skill ≤ ~30s) chỉ
+      // bắt đầu đếm ân hạn, không cắt ngang skill.
+      const graceSeconds = d.leaveGraceSeconds || 600;
+      if (dancer.leftAt != null && time - dancer.leftAt > graceSeconds) {
         this.startLeave(dancer);
         continue;
       }

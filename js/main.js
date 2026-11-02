@@ -119,8 +119,16 @@ function giftTierFor(diamonds) {
 // ---- Xử lý event live → hiệu ứng (mọi ngưỡng từ config.js) ----
 function handleEvent(evt) {
   const now = performance.now() / 1000;
-  // Mọi event đều là dấu hiệu viewer còn xem → refresh giờ tương tác
-  // (hết idleLeaveSeconds im lặng thì rời sàn).
+  if (evt.type === 'leave') {
+    // Viewer rời live: bắt đầu đếm 10 phút ân hạn, không xóa ngay.
+    // Mọi event khác sau đó (vào lại/bình luận/thả tim/tặng) hủy trạng
+    // thái rời qua markActive. Người còn xem không bao giờ bị đuổi vì
+    // im lặng (user lệnh 00:43).
+    dancers.markLeft(evt.user.uniqueId, now);
+    return;
+  }
+  // Mọi event còn lại đều là dấu hiệu viewer còn xem → refresh giờ
+  // tương tác và hủy trạng thái "đã rời" nếu có.
   dancers.markActive(evt.user.uniqueId, now);
   if (evt.type === 'chat') {
     const command = matchCommand(evt.text);

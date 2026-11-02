@@ -130,8 +130,9 @@ export const CONFIG = {
     energyBoostFollow: 0.6,
     enterDurationSeconds: 0.6,
     leaveDurationSeconds: 0.5,
-    // Out live ~5 phút không tương tác (chat/like/follow/gift/join) thì rời sàn.
-    idleLeaveSeconds: 300,
+    // Rời live thì 10 phút sau mới out nhân vật (user lệnh 00:43):
+    // người còn xem thì KHÔNG BAO GIỜ bị đuổi vì im lặng.
+    leaveGraceSeconds: 600,
     orbitDurationSeconds: 8,
     orbitRadius: 3.2,
     orbitSpeed: 1.1,

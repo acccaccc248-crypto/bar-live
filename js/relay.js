@@ -213,12 +213,16 @@ function mapMessage(msg) {
     }
     case 'WebcastMemberMessage': {
       // Người xem VÀO phòng (user lệnh 23:36 02/11): tự lên sàn nhảy,
-      // khỏi đợi bình luận. Phòng thủ: bỏ qua action rời phòng và
+      // khỏi đợi bình luận. Người xem RỜI phòng (user lệnh 00:43 03/11):
+      // phát event 'leave' để dancers.js bắt đầu đếm 10 phút ân hạn
+      // (không xóa ngay; vào lại/tương tác sẽ hủy). Phòng thủ: bỏ qua
       // message không có user thật (tránh dancer "Khách" trùng nhau).
       const user = toInternalUser(data.user);
       if (!user.uniqueId) return null;
       const action = String(data.action || data.actionId || '');
-      if (/leave|left|exit/i.test(action)) return null;
+      if (/leave|left|exit/i.test(action)) {
+        return { type: 'leave', user, text: '', giftName: '', diamonds: 0, count: 1 };
+      }
       return { type: 'join', user, text: '', giftName: '', diamonds: 0, count: 1 };
     }
     case 'WebcastRoomUserSeqMessage':

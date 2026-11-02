@@ -2,9 +2,9 @@
 
 Sở hữu: agent nhạc DJ. Mọi ngưỡng nhạc nằm trong `CONFIG.music` (`../config.js`);
 `js/audio.js` không hardcode BPM, pattern hay âm lượng. Cập nhật lần cuối:
-03/11/2026 — đợt 4 (refresh định kỳ): thêm 5 track mới năng lượng cao,
-xoay loại 1 track không-hot cũ (Dance Like There's No Tomorrow) để giữ
-tổng < 10 MB, giữ nguyên toàn bộ track hot + Dance Away.
+03/11/2026 — đợt 5: thêm 2 track mới (House Vibez, Night Terrors), xoay
+loại 2 track cũ ít năng lượng nhất (Positive Energy, India) để giữ
+tổng < 10 MB, giữ nguyên toàn bộ track hot còn lại + Dance Away.
 
 ## 1. "Nhạc hot" nghĩa là gì cho sàn này — và ranh giới bản quyền
 
@@ -90,8 +90,8 @@ bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết tr
 | 3 | Techno Fest Feel — Alejandro Magaña | 126.0 | 32 bar, từ 30.48s | 732 KB | ★ |
 | 4 | Dance Zero — Lily J | 123.9 | 32 bar, từ 19.37s | 745 KB | ★ |
 | 5 | Dance Away — Michael Ramir C | 149.9 | 32 bar, từ 5.15s | 616 KB | ★ |
-| 6 | Positive Energy — Michael Ramir C | 135.0 | 32 bar, từ 7.50s | 683 KB | ★ |
-| 7 | India — Arulo | 128.0 | 32 bar, từ 30.41s | 721 KB | ★ |
+| 6 | House Vibez — Lily J | 122.0 | 32 bar, từ 31.48s | 738 KB | ★ |
+| 7 | Night Terrors — Arulo | 130.0 | 32 bar, từ 27.69s | 693 KB | ★ |
 | 8 | Infected Mushroom Vibes — Alejandro Magaña | 145.0 | 32 bar, từ 31.66s | 636 KB | ★ |
 | 9 | House 02 — Lily J | 123.0 | 32 bar, từ 15.61s | 750 KB | ★ |
 | 10 | Golden Storm — Diego Nava | 127.0 | 32 bar, từ 15.53s | 726 KB | ★ |
@@ -100,9 +100,41 @@ bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết tr
 | 13 | Hard Techno — Arulo | 120.0 | 32 bar, từ 15.99s | 768 KB | ★ |
 | 14 | Trance Party — Alejandro Magaña | 136.0 | 32 bar, từ 28.64s | 679 KB | ★ |
 
-Tổng: 14 file, 9,57 MiB (< 10 MiB ngân sách). File: `audio/<slug>-<mixkit-id>.mp3`
+Tổng: 14 file, 9,65 MiB (< 10 MiB ngân sách). File: `audio/<slug>-<mixkit-id>.mp3`
 (MP3 96 kbps, 44,1 kHz stereo). Mỗi entry trong `CONFIG.music.tracks`:
 `{ src, title, artist, license, licenseUrl, bpm, bars, gain, hot }`.
+
+**Đợt 5 (03/11/2026, lệnh trực tiếp của sếp 00:15–00:19, mở rộng dần):
+mọi nước, ưu tiên Vinahouse mạnh nhất, càng nhiều bản càng tốt, tiếng
+đám đông là điểm cộng.** Quét 204 ID duy nhất qua 8 trang danh mục/tag
+Mixkit (party/festival/celebration/edm/electronic/dance/house/workout/
+bass/nightlife/action/stadium/anthem/sports/rave/concert/club), đo ~70
+ứng viên bằng 2 phương pháp + grid-search (script `/tmp/dj5/analyze.py`,
+hiệu chuẩn lại trên 3 track cũ khớp ±0,2 BPM). 5 track trong danh sách
+đợt 5 đã bị đợt 4 (refresh định kỳ chạy song song 00:30) thêm trước
+(Golden Storm, Expressive Courage, Let's Move, Hard Techno, Trance
+Party) — đã trừ trùng lặp theo tên + nguồn, không push trùng. 2 track
+mới đạt chuẩn được thêm: House Vibez (122.0, grid 2.54 trên file cắt,
+đo độc lập đợt 4: 122.0/grid 3.0) và Night Terrors (130.0, grid 3.26
+trên file cắt, đợt 4: 130.0/grid 3.47; cửa sổ cắt có 1 bar breakdown).
+Xoay loại 2 track cũ ít năng lượng nhất theo RMS file đã cắt: Positive
+Energy (0.116, thấp nhất catalog) và India (0.180, thấp thứ hai) — 2
+track mới (RMS 0.199/0.227) đều cao hơn cả hai track bị loại; Dance
+Away + toàn bộ track hot còn lại giữ nguyên. Dự bị đã cắt + kiểm chứng
+xong, chưa đưa vào repo: Feast From The East — Michael Ramir C (123.0,
+grid 2.32, RMS 0.203, màu phương Đông thay lane của India) và Minimal
+Techno 01 (128.0, RMS cửa sổ 0.598, grid 1.50 — chờ kiểm chứng thêm).
+Không tìm được track hợp pháp nào có tiếng đám đông thật (hò hét/vỗ
+tay/la ó) — heuristic phổ chỉ ra đoạn ồn ào nhưng không xác nhận được
+bằng tai, nên không ghi nhận track nào là "có tiếng đám đông"; TeknoAXE
+(CC-BY 4.0, cần ghi công) có 3 track electro-house 120 BPM năng lượng
+rất cao (RMS 0.45–0.47) nhưng dưới dải BPM ưu tiên 122–152 nên không
+lấy; FMA/Incompetech kiểm tra lại — không có track DJ đạt chuẩn.
+**Mục tiêu 6–10 bản mới KHÔNG đạt được trong trần 10 MiB:** 14 track ×
+~700 KB ≈ 9,65 MiB; thêm 1 track nữa phải loại 1 track cũ (đếm vòng
+không tăng), trừ khi nâng trần hoặc giảm chất lượng — cả hai đều bị
+cấm. Vòng playlist hiện ~14 phút; muốn dài hơn thì sếp cần duyệt nâng
+trần dung lượng (vd 15 MiB) ở lần làm mới sau.
 
 **Đợt 4 (03/11/2026, refresh định kỳ theo lệnh "cập nhật nghiên cứu liên
 tục"):** quét 95 track Mixkit qua các danh mục dance/edm/house/electronic/

@@ -317,19 +317,29 @@ function crownJewelMaterial() {
 // Chọn top donor từ bảng tổng gift (Map uniqueId -> { name, total }).
 // Chỉ đổi người khi có người vượt hẳn; HÒA điểm thì giữ người đang giữ
 // vị trí (không nhấp nháy đổi qua đổi lại). Trả uniqueId hoặc null.
+// Top donor đã rời live (hết 10 phút ân hạn, chibi đã xóa khỏi sàn):
+// loại khỏi bảng xếp hạng lồng sắt để top mới lên thay (lệnh 02:22).
+// Xóa khỏi tập này khi họ quay lại xem (addOrGet/markActive).
+const departedDonorIds = new Set();
+
 export function selectTopDonor(giftTotals, currentId) {
   if (!giftTotals || giftTotals.size === 0) return null;
   let topId = null;
   let topTotal = -1;
   for (const [id, entry] of giftTotals) {
+    if (departedDonorIds.has(String(id))) continue;
     if (entry && entry.total > topTotal) {
       topTotal = entry.total;
       topId = id;
     }
   }
-  if (currentId != null) {
-    const currentTotal = giftTotals.get(String(currentId));
-    if (currentTotal && currentTotal.total >= topTotal) return String(currentId);
+  // Hòa điểm thì giữ người đang đứng (kể cả khi người đó đã rời sàn
+  // nhưng chưa hết ân hạn — currentId lúc đó vẫn là người đang đứng).
+  // Người đã rời hẳn (trong departedDonorIds) thì không giữ nữa.
+  const currentKey = currentId == null ? null : String(currentId);
+  if (currentKey != null && !departedDonorIds.has(currentKey)) {
+    const currentTotal = giftTotals.get(currentKey);
+    if (currentTotal && currentTotal.total >= topTotal) return currentKey;
   }
   return topId;
 }
@@ -369,6 +379,65 @@ export function matchCommand(text) {
     }
   }
   return null;
+}
+
+// Mặt người múa cột (lệnh 02:21): nữ trưởng thành, nét vẽ mảnh stylized
+// (mắt to, môi cười, má hồng) — KHÔNG dùng mặt meme chibi. Cùng quy ước
+// UV với makeFaceTexture: mặt trước (+z) nằm ở u = 0.25.
+function makePoleFaceTexture() {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const pc = CONFIG.dancers.poleDancer;
+  ctx.fillStyle = `#${pc.skinColor.toString(16).padStart(6, '0')}`;
+  ctx.fillRect(0, 0, size, size);
+  const cx = size * 0.25;
+  const eyeY = size * 0.46;
+  const eyeDX = size * 0.085;
+  const INK = '#2a1a2e';
+  ctx.strokeStyle = INK;
+  ctx.fillStyle = INK;
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  // Lông mày cong mảnh.
+  ctx.beginPath();
+  ctx.arc(cx - eyeDX, eyeY - size * 0.05, size * 0.045, Math.PI * 1.15, Math.PI * 1.85);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx + eyeDX, eyeY - size * 0.05, size * 0.045, Math.PI * 1.15, Math.PI * 1.85);
+  ctx.stroke();
+  // Mắt to (vẽ bằng arc tròn cho bền — không dùng ellipse), điểm sáng trắng.
+  const eye = (x) => {
+    ctx.beginPath();
+    ctx.arc(x, eyeY, size * 0.042, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x + size * 0.012, eyeY - size * 0.015, size * 0.011, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = INK;
+  };
+  eye(cx - eyeDX);
+  eye(cx + eyeDX);
+  // Má hồng.
+  ctx.fillStyle = 'rgba(255, 110, 150, 0.45)';
+  ctx.beginPath();
+  ctx.arc(cx - eyeDX * 1.7, eyeY + size * 0.07, size * 0.035, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + eyeDX * 1.7, eyeY + size * 0.07, size * 0.035, 0, Math.PI * 2);
+  ctx.fill();
+  // Môi cười hồng.
+  ctx.strokeStyle = '#c2275a';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(cx, eyeY + size * 0.1, size * 0.045, Math.PI * 0.15, Math.PI * 0.85);
+  ctx.stroke();
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 function makeAvatarTexture(avatarUrl, displayName) {
@@ -448,30 +517,35 @@ export class DancerManager {
     // tới skill sau. Xem CONFIG.skills + enqueueSkill/getSkillCameraPose.
     this.skillQueue = [];
     this.activeSkill = null;
-    // Dancer đang đứng bàn DJ (top donor). null = bàn trống.
+    // Chibi của top donor đang đứng TRONG LỒNG SẮT (lệnh 02:22 — bàn DJ
+    // từ 02:22 chỉ còn làm cảnh, không đặt dancer ở đó nữa). Chibi này
+    // TẠM ẨN khỏi sàn; nhân vật múa cột trong lồng mang tên + vương miện
+    // của họ. null = chưa có top donor (bàn... lồng ở trạng thái mặc định).
     this.djDancer = null;
-    // Vương miện vàng: CHỈ 1 chiếc duy nhất, gắn lên đầu top donor.
-    // null = chưa có ai đội (chưa có gift). Tạo lười ở _getCrownGroup().
+    // Vương miện vàng: CHỈ 1 chiếc duy nhất, gắn lên đầu NGƯỜI MÚA CỘT
+    // khi có top donor. null = chưa có ai đội (chưa có gift). Tạo lười
+    // ở _getCrownGroup().
     this.crownGroup = null;
-    this.crownedDancer = null;
     // Giới hạn đi dạo (vùng sàn + khu cấm): tính lười ở _wanderLimits().
     this._wanderLimitsCache = null;
+    // Người múa cột cố định trong lồng (không phải viewer, không tính
+    // vào maxDancers, không chiếm slot — xem _createPoleDancer).
+    this.poleDancer = this._createPoleDancer();
   }
 
   _buildSlots() {
+    // Vòng ellipse quanh lồng nhỏ (lệnh 02:20): 12 slot, lệch nửa bước
+    // góc để không slot nào chắn chính diện lồng (giữa 2 slot trước
+    // mặt là khoảng trống nhìn thẳng vào người múa cột).
+    const ring = CONFIG.dancers.slotRing;
     const slots = [];
-    const usableWidth = CONFIG.floor.cols * CONFIG.floor.tileSize - 2;
-    const usableDepth = CONFIG.floor.rows * CONFIG.floor.tileSize - 1.6;
-    // Đông người (12): lưới 3 hàng × 4 cột để không chồng lấn;
-    // ít người (≤8): giữ 2 hàng như cũ.
-    const rows = CONFIG.dancers.maxDancers > 8 ? 3 : 2;
-    const perRow = Math.ceil(CONFIG.dancers.maxDancers / rows);
     for (let i = 0; i < CONFIG.dancers.maxDancers; i += 1) {
-      const row = i % rows;
-      const col = Math.floor(i / rows);
-      const x = perRow <= 1 ? 0 : -usableWidth / 2 + (usableWidth * col) / (perRow - 1);
-      const z = rows <= 1 ? 0 : (row / (rows - 1) - 0.5) * (usableDepth / 2);
-      slots.push(new THREE.Vector3(x, 0, z));
+      const a = ((i + 0.5) / CONFIG.dancers.maxDancers) * Math.PI * 2;
+      slots.push(new THREE.Vector3(
+        ring.centerX + Math.cos(a) * ring.radiusX,
+        0,
+        ring.centerZ + Math.sin(a) * ring.radiusZ,
+      ));
     }
     return slots;
   }
@@ -500,6 +574,8 @@ export class DancerManager {
   // tự đuổi khỏi sàn (user lệnh 00:43) — chỉ tín hiệu rời + 10 phút
   // ân hạn mới cho rời (xem update()).
   markActive(uniqueId, now) {
+    // Quay lại xem → không còn "đã rời": cho lại vào bảng xếp hạng lồng.
+    departedDonorIds.delete(String(uniqueId));
     const dancer = this.dancers.get(String(uniqueId));
     if (dancer) {
       dancer.lastActivityAt = now;
@@ -518,12 +594,14 @@ export class DancerManager {
 
   addOrGet(user) {
     const id = String(user.uniqueId);
+    // Xuất hiện lại (vào/bình luận/thả tim/tặng) → không còn "đã rời".
+    departedDonorIds.delete(id);
     const existing = this.dancers.get(id);
     if (existing) return existing;
     if (this.dancers.size >= CONFIG.dancers.maxDancers) {
-      // Sàn đầy: cho dancer cũ nhất (không phải VIP / DJ / sắp rời) rời
-      // sàn để nhường chỗ. Dancer DJ được bảo vệ như VIP.
-      const oldest = [...this.dancers.values()].find((d) => d.mode !== 'vip' && d.mode !== 'dj' && d.mode !== 'leaving');
+      // Sàn đầy: đuổi người cũ nhất KHÔNG ở bục VIP, KHÔNG phải chibi
+      // của top donor đang đứng lồng (ẩn), KHÔNG đang rời sàn.
+      const oldest = [...this.dancers.values()].find((d) => d.mode !== 'vip' && d !== this.djDancer && d.mode !== 'leaving');
       if (oldest) this.startLeave(oldest);
       else return null;
     }
@@ -535,13 +613,200 @@ export class DancerManager {
     return dancer;
   }
 
+  // ---- Người múa cột trong lồng (lệnh 02:20/02:21/02:22) ----
+  // Nhân vật RIÊNG BIỆT, cố định, không phải viewer: mỹ nữ trưởng thành
+  // với tỷ lệ riêng (chân dài, eo thon, ngực lớn, tóc dài, đồ diễn bar),
+  // dựng mới gọn nhẹ — KHÔNG dùng mẫu chibi đầu to tóc bát úp.
+  // Không tính vào maxDancers, không chiếm slot, không DJ/VIP, không bị
+  // đuổi sàn; chạy chung vòng update() (mode 'pole'), dùng chung nhịp nhạc.
+  // Nhãn tên mặc định "Múa cột", không avatar; khi có top donor thì mang
+  // tên + vương miện của top donor (setDjDancer), chibi riêng tạm ẩn.
+  _createPoleDancer() {
+    const pc = CONFIG.dancers.poleDancer;
+    const group = new THREE.Group();
+    const cage = CONFIG.scene.cage;
+    group.position.set(cage.centerX, 0, cage.centerZ);
+
+    const materials = [];
+    const track = (mat) => {
+      mat.transparent = true;
+      materials.push(mat);
+      return mat;
+    };
+    const skinMat = track(new THREE.MeshLambertMaterial({ color: pc.skinColor }));
+    const topMat = track(new THREE.MeshLambertMaterial({
+      color: pc.topColor, emissive: pc.topEmissive, emissiveIntensity: 0.55,
+    }));
+    const shortsMat = track(new THREE.MeshLambertMaterial({ color: pc.shortsColor }));
+    const bootMat = track(new THREE.MeshLambertMaterial({ color: pc.bootColor }));
+    const hairMat = track(new THREE.MeshLambertMaterial({ color: pc.hairColor }));
+    const faceMat = track(new THREE.MeshLambertMaterial({ map: makePoleFaceTexture() }));
+
+    // Chân dài: pivot ở hông, gót bốt chạm sàn.
+    const legGeo = new THREE.CylinderGeometry(pc.legRadius, pc.legRadius * 0.8, pc.legLength, 8);
+    const legL = new THREE.Group();
+    const legR = new THREE.Group();
+    legL.position.set(-0.1, pc.hipY, 0);
+    legR.position.set(0.1, pc.hipY, 0);
+    const legMeshL = new THREE.Mesh(legGeo, skinMat);
+    const legMeshR = new THREE.Mesh(legGeo, skinMat);
+    legMeshL.position.y = -pc.legLength / 2;
+    legMeshR.position.y = -pc.legLength / 2;
+    legL.add(legMeshL);
+    legR.add(legMeshR);
+    const shoeGeo = new THREE.BoxGeometry(0.09, 0.06, 0.2);
+    const shoeL = new THREE.Mesh(shoeGeo, bootMat);
+    const shoeR = new THREE.Mesh(shoeGeo, bootMat);
+    shoeL.position.set(0, -pc.legLength + 0.03, 0.04);
+    shoeR.position.set(0, -pc.legLength + 0.03, 0.04);
+    legL.add(shoeL);
+    legR.add(shoeR);
+    group.add(legL, legR);
+
+    // Hông + quần short tím đậm.
+    const hips = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.19, 0.2, 0.2, 12), shortsMat,
+    );
+    hips.position.y = 1.0;
+    group.add(hips);
+    // Thân trên: eo thon (trên 0.15 / dưới 0.17), áo diễn tím hồng neon.
+    const torso = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.15, 0.17, 0.42, 12), topMat,
+    );
+    torso.position.y = 1.24;
+    group.add(torso);
+    // Ngực lớn: 2 cầu áo cùng chất liệu top, hơi hướng về trước.
+    const bustGeo = new THREE.SphereGeometry(pc.bustRadius, 14, 10);
+    const bustL = new THREE.Mesh(bustGeo, topMat);
+    const bustR = new THREE.Mesh(bustGeo, topMat);
+    bustL.position.set(-pc.bustDX, pc.chestY, pc.bustDZ);
+    bustR.position.set(pc.bustDX, pc.chestY, pc.bustDZ);
+    group.add(bustL, bustR);
+
+    // Tay thon: pivot ở vai.
+    const armGeo = new THREE.CylinderGeometry(pc.armRadius, pc.armRadius * 0.85, pc.armLength, 8);
+    const armL = new THREE.Group();
+    const armR = new THREE.Group();
+    armL.position.set(-pc.shoulderDX, pc.shoulderY, 0);
+    armR.position.set(pc.shoulderDX, pc.shoulderY, 0);
+    const armMeshL = new THREE.Mesh(armGeo, skinMat);
+    const armMeshR = new THREE.Mesh(armGeo, skinMat);
+    armMeshL.position.y = -pc.armLength / 2;
+    armMeshR.position.y = -pc.armLength / 2;
+    armL.add(armMeshL);
+    armR.add(armMeshR);
+    group.add(armL, armR);
+
+    // Đầu + tóc dài (headGroup để gắn vương miện như chibi).
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, pc.headCenterY, 0);
+    const headMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(pc.headRadius, 24, 18), faceMat,
+    );
+    headGroup.add(headMesh);
+    // Mũ tóc phủ đỉnh + sau đầu, hơi nghiêng về sau.
+    const hairCap = new THREE.Mesh(
+      new THREE.SphereGeometry(pc.headRadius + 0.025, 24, 16, 0, Math.PI * 2, 0, 1.5),
+      hairMat,
+    );
+    hairCap.position.set(0, 0.01, -0.01);
+    hairCap.rotation.x = -0.35;
+    headGroup.add(hairCap);
+    // Tóc dài sau lưng tới giữa lưng + 2 lọn tóc mai ôm mặt.
+    const backHair = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, pc.hairLength, 0.09), hairMat,
+    );
+    backHair.position.set(0, -pc.hairLength / 2 + 0.12, -0.16);
+    headGroup.add(backHair);
+    const strandGeo = new THREE.CylinderGeometry(0.045, 0.035, 0.34, 6);
+    const strandL = new THREE.Mesh(strandGeo, hairMat);
+    const strandR = new THREE.Mesh(strandGeo, hairMat);
+    strandL.position.set(-0.18, -0.12, 0.03);
+    strandR.position.set(0.18, -0.12, 0.03);
+    headGroup.add(strandL, strandR);
+    group.add(headGroup);
+
+    // Nhãn tên (không avatar) — vị trí như chibi nhưng thấp hơn theo đầu thật.
+    const nameSprite = makeNameSprite(pc.defaultName);
+    nameSprite.position.set(0, pc.nameSpriteY, 0.02);
+    group.add(nameSprite);
+
+    this.scene.add(group);
+    return {
+      user: { name: pc.defaultName, uniqueId: '__pole__', avatar: '' },
+      group,
+      headGroup,
+      armL,
+      armR,
+      legL,
+      legR,
+      nameSprite,
+      avatarSprite: null,
+      avatarTexture: null,
+      nameBaseY: pc.nameSpriteY,
+      shirtMat: topMat,
+      headMesh,
+      materials,
+      mode: 'pole',
+      energy: 1,
+      phaseOffset: 0,
+      enterProgress: 1,
+      leaveProgress: 0,
+      lastActivityAt: 0,
+      leftAt: null,
+      orbitUntil: 0,
+      orbitAngle: 0,
+      jumpUntil: 0,
+      jumpStartedAt: 0,
+      armsUpStartedAt: 0,
+      armsUpUntil: 0,
+      vipUntil: 0,
+      baseY: 0,
+      skillKind: null,
+      skillStartedAt: 0,
+      skillUntil: 0,
+      somersaultStartedAt: 0,
+      somersaultUntil: 0,
+      somersaultGroundY: 0,
+      somersaultFired: false,
+      somersaultAngle: 0,
+      moveIndex: 0,
+      moveStartBar: 0,
+      moveBars: 4,
+      moveDir: 1,
+      // Trạng thái múa cột riêng.
+      poleAngle: 0,
+      polePoseBar: -1,
+      polePoseIndex: 0,
+      poleLeanZ: 0,
+      poleArmL: { x: 0, z: 0 },
+      poleArmR: { x: 0, z: 0 },
+      poleLegL: 0,
+      poleLegR: 0,
+      wanderHeading: 0,
+      wanderTarget: null,
+      wanderRetargetAt: 0,
+      wanderSpeed: 0,
+      stepOffset: 0,
+      stepOffsetPrev: 0,
+    };
+  }
+
+  // Người múa cột có chạy chung vòng update/skill với viewer không? Chỉ
+  // chấp nhận đúng object pole dancer (không qua map — không tính vào
+  // maxDancers, không bị đuổi sàn).
+  _ownsDancer(dancer) {
+    return dancer === this.poleDancer
+      || this.dancers.has(String(dancer.user.uniqueId));
+  }
+
   _createDancer(user, slotIndex) {
     const d = CONFIG.dancers;
     const c = d.chibi;
     const group = new THREE.Group();
     const home = this.slots[slotIndex].clone();
-    // Ô lưới góc phải có thể đè lên bục VIP: đẩy điểm xuất phát ra khỏi
-    // khu cấm ngay từ đầu (đi dạo kẹp lại sau mỗi bước anyway).
+    // Slot vòng quanh lồng đã tránh khu cấm; kẹp lại cho chắc (đi dạo
+    // kẹp lại sau mỗi bước anyway).
     this._clampPointToWander(home, this._wanderLimits());
     group.position.copy(home);
     // Bắt đầu nhỏ + dưới sàn, animation bước lên sẽ nâng dần.
@@ -720,14 +985,21 @@ export class DancerManager {
       this.randomize(dancer);
       this.boost(dancer, CONFIG.dancers.energyBoostChat);
     } else if (commandKey === 'orbit') {
-      // Đang đứng bàn DJ thì ở yên đó (đi vòng sẽ kéo khỏi bàn).
-      if (dancer.mode === 'dj') return dancer;
+      // Chibi của top donor đang đứng lồng thì ở yên trong lồng (đi vòng
+      // sẽ kéo khỏi lồng; người múa cột đã xoay quanh cột sẵn rồi).
+      if (dancer === this.djDancer) return dancer;
       dancer.mode = 'orbit';
       dancer.orbitUntil = now + CONFIG.dancers.orbitDurationSeconds;
       this.boost(dancer, CONFIG.dancers.energyBoostChat);
     } else if (commandKey === 'armsUp') {
-      // Lệnh "giơ tay": DJ giữ tư thế DJ, không áp (như 'đi vòng').
-      if (dancer.mode === 'dj') return dancer;
+      // Lệnh "giơ tay": top donor đang đứng lồng thì NGƯỜI MÚA CỘT giơ
+      // 2 tay lên (chibi riêng đang ẩn, giơ tay lên chibi thì không ai thấy).
+      if (dancer === this.djDancer && this.poleDancer) {
+        this.poleDancer.armsUpStartedAt = now;
+        this.poleDancer.armsUpUntil = now + CONFIG.dancers.commandArmsUpDurationSeconds;
+        this.boost(dancer, CONFIG.dancers.energyBoostChat);
+        return dancer;
+      }
       dancer.armsUpStartedAt = now;
       dancer.armsUpUntil = now + CONFIG.dancers.commandArmsUpDurationSeconds;
       this.boost(dancer, CONFIG.dancers.energyBoostChat);
@@ -745,8 +1017,15 @@ export class DancerManager {
         : tier.id === 'medium'
           ? CONFIG.dancers.energyBoostGiftMedium
           : CONFIG.dancers.energyBoostGiftLarge;
+    // Top donor đang đứng lồng: hiệu ứng nhìn thấy được (vòng sáng,
+    // skill, pháo bông) chạy trên NGƯỜI MÚA CỘT — chibi riêng đang ẩn,
+    // chạy hiệu ứng lên chibi thì khán giả không thấy gì. Đổi nhân vật
+    // vẫn áp lên chibi ẩn (lúc hiện lại thì thấy mặt/áo mới); lên bục
+    // VIP thì bỏ (đang đứng lồng, xem sendToVip).
+    const caged = dancer === this.djDancer && this.poleDancer;
+    const fxTarget = caged ? this.poleDancer : dancer;
     if (effects.danceBoost) this.boost(dancer, giftBoost);
-    if (effects.smallEffect && this.hooks.onRing) this.hooks.onRing(dancer.group.position);
+    if (effects.smallEffect && this.hooks.onRing) this.hooks.onRing(fxTarget.group.position);
     if (effects.changeCharacter) this.randomize(dancer);
     // Skill nhảy theo gift (CONFIG.skills): xếp hàng, skill tự lo camera +
     // pháo bông nên bỏ qua zoom/pháo bông tức thời để khỏi nhân đôi hiệu ứng.
@@ -754,11 +1033,11 @@ export class DancerManager {
     const totalDiamonds = Number(opts.totalDiamonds || 0);
     const skillKind = this._skillKindFor(opts.giftName || '', totalDiamonds);
     if (skillKind) {
-      this.enqueueSkill(dancer, skillKind, now);
+      this.enqueueSkill(fxTarget, skillKind, now);
     } else {
       if (effects.cameraZoom && this.hooks.onCameraZoom) this.hooks.onCameraZoom();
       if (effects.fireworks && this.hooks.onFireworks) {
-        this.hooks.onFireworks(dancer.group.position.clone().add(new THREE.Vector3(0, 2.2, 0)));
+        this.hooks.onFireworks(fxTarget.group.position.clone().add(new THREE.Vector3(0, 2.2, 0)));
       }
     }
     if (effects.vipPodium) this.sendToVip(dancer, now);
@@ -794,7 +1073,7 @@ export class DancerManager {
     const s = this.activeSkill;
     if (!s) return null;
     const dancer = s.dancer;
-    if (!this.dancers.has(String(dancer.user.uniqueId)) || dancer.mode === 'leaving') return null;
+    if (!this._ownsDancer(dancer) || dancer.mode === 'leaving') return null;
     const cfg = s.kind === 'grand' ? CONFIG.skills.grand : CONFIG.skills.rose;
     const pos = dancer.group.position;
     // Framing lúc santo (lỗi 22:29): cơ thể lộn quanh gốc ở chân nên tâm
@@ -804,7 +1083,9 @@ export class DancerManager {
     // Tâm hình học ≈ giữa chân và đỉnh tóc (tính từ hình học thật, có scale);
     // ở góc 0 thì đúng bằng cameraLookAtHeight cũ (liên tục, không giật).
     const d = CONFIG.dancers;
-    const centerY = ((d.chibi.headCenterY + d.chibi.hairRadius) / 2) * (d.scale || 1);
+    const centerY = dancer.mode === 'pole'
+      ? (d.poleDancer.headCenterY + d.poleDancer.headRadius) / 2
+      : ((d.chibi.headCenterY + d.chibi.hairRadius) / 2) * (d.scale || 1);
     const flip = dancer.somersaultAngle || 0;
     const lookHeight = flip === 0
       ? CONFIG.skills.cameraLookAtHeight
@@ -815,14 +1096,8 @@ export class DancerManager {
     dir.y = 0;
     if (dir.lengthSq() < 0.01) dir.set(0, 0, 1);
     dir.normalize();
-    // Dancer ở bàn DJ (sau lưng, sau bàn): lùi camera ra thêm để cả bàn
-    // + dancer đều trong khung, khỏi bị bàn che.
-    let distance = cfg.cameraDistance;
-    let height = cfg.cameraHeight;
-    if (dancer.mode === 'dj') {
-      distance += CONFIG.skills.djCameraExtraDistance || 0;
-      height += CONFIG.skills.djCameraExtraHeight || 0;
-    }
+    const distance = cfg.cameraDistance;
+    const height = cfg.cameraHeight;
     const camPos = pos.clone().add(dir.multiplyScalar(distance));
     camPos.y = pos.y + height;
     return { position: camPos, lookAt: target, lerpSpeed: cfg.cameraLerpSpeed };
@@ -832,7 +1107,7 @@ export class DancerManager {
     const next = this.skillQueue.shift();
     if (!next) return;
     const { dancer, kind } = next;
-    if (!this.dancers.has(String(dancer.user.uniqueId)) || dancer.mode === 'leaving') {
+    if (!this._ownsDancer(dancer) || dancer.mode === 'leaving') {
       this._startNextSkill(time);
       return;
     }
@@ -875,7 +1150,7 @@ export class DancerManager {
     const s = this.activeSkill;
     if (!s) return;
     const dancer = s.dancer;
-    if (!this.dancers.has(String(dancer.user.uniqueId)) || dancer.mode === 'leaving') {
+    if (!this._ownsDancer(dancer) || dancer.mode === 'leaving') {
       dancer.skillKind = null;
       this.activeSkill = null;
       return;
@@ -919,8 +1194,9 @@ export class DancerManager {
   }
 
   sendToVip(dancer, now) {
-    // Dancer đang đứng bàn DJ thì ở yên đó (không kéo lên bục VIP).
-    if (dancer.mode === 'dj') return;
+    // Chibi của top donor đang đứng lồng thì ở yên trong lồng (không kéo
+    // lên bục VIP — mỗi người chỉ xuất hiện 1 lần).
+    if (dancer === this.djDancer) return;
     dancer.mode = 'vip';
     dancer.vipUntil = now + CONFIG.gifts.vipDurationSeconds;
     dancer.group.position.set(
@@ -931,19 +1207,17 @@ export class DancerManager {
     if (this.hooks.onVipSpotlight) this.hooks.onVipSpotlight(true);
   }
 
-  // ---- Vương miện vàng (top donor, user lệnh 22:26) ----
-  // Chỉ 1 chiếc duy nhất: tạo 1 lần, gắn qua lại giữa các dancer bằng cách
-  // reparent vào headGroup của top donor. Là con của headGroup nên tự theo
-  // scale 0.8, theo mọi animation (nhảy, santo, tư thế DJ), đội đúng trên
-  // đỉnh tóc bát úp (cùng độ nghiêng với tóc), không che mặt.
+  // ---- Vương miện vàng (top donor, user lệnh 22:26 + 02:22) ----
+  // Chỉ 1 chiếc duy nhất: tạo 1 lần, gắn lên đầu NGƯỜI MÚA CỘT khi có
+  // top donor (từ 02:22 vương miện không còn đội lên chibi nữa). Là con
+  // của headGroup nên tự theo mọi animation (múa cột, santo); thu nhỏ
+  // theo poleDancer.crownScale cho vừa đầu người thật.
   _getCrownGroup() {
     if (this.crownGroup) return this.crownGroup;
     const crown = CONFIG.dancers.crown;
-    const c = CONFIG.dancers.chibi;
     const group = new THREE.Group();
     group.visible = false;
-    // Cùng độ nghiêng + lệch với tóc bát úp để vương miện ôm sát đỉnh tóc.
-    group.rotation.x = c.hairTiltX;
+    group.rotation.x = 0;
     group.position.set(0, 0, 0.02);
 
     const band = new THREE.Mesh(this.geo.crownBand, crownGoldMaterial());
@@ -971,74 +1245,98 @@ export class DancerManager {
     return group;
   }
 
-  // Nâng/trả nhãn tên + avatar khi đội/tháo vương miện (khỏi chạm chóp).
+  // Nâng/trả nhãn tên (+ avatar nếu có) khi đội/tháo vương miện (khỏi chạm chóp).
   _setCrownLabels(dancer, crowned) {
     const lift = crowned ? (CONFIG.dancers.crown.labelLiftY || 0) : 0;
-    dancer.avatarSprite.position.y = dancer.avatarBaseY + lift;
+    if (dancer.avatarSprite) dancer.avatarSprite.position.y = dancer.avatarBaseY + lift;
     dancer.nameSprite.position.y = dancer.nameBaseY + lift;
   }
 
-  _attachCrown(dancer) {
-    if (!dancer) return;
-    if (this.crownedDancer === dancer) return;
-    this._detachCrown();
+  // Vương miện lên đầu người múa cột (thu nhỏ theo đầu người thật).
+  _attachCrownToPole() {
     const crown = this._getCrownGroup();
-    dancer.headGroup.add(crown);
+    crown.scale.setScalar(CONFIG.dancers.poleDancer.crownScale);
+    crown.rotation.x = 0;
+    this.poleDancer.headGroup.add(crown);
     crown.visible = true;
-    this._setCrownLabels(dancer, true);
-    this.crownedDancer = dancer;
+    this._setCrownLabels(this.poleDancer, true);
   }
 
-  _detachCrown() {
-    const prev = this.crownedDancer;
-    this.crownedDancer = null;
-    if (!prev) return;
-    this._setCrownLabels(prev, false);
+  _detachCrownFromPole() {
     if (this.crownGroup && this.crownGroup.parent) {
       this.crownGroup.parent.remove(this.crownGroup);
     }
-    if (this.crownGroup) this.crownGroup.visible = false;
+    if (this.crownGroup) {
+      this.crownGroup.visible = false;
+      this.crownGroup.scale.setScalar(1);
+    }
+    if (this.poleDancer) this._setCrownLabels(this.poleDancer, false);
   }
 
-  getCrownedDancer() {
-    return this.crownedDancer;
+  // Đổi tên hiển thị của người múa cột (tên top donor / tên mặc định).
+  _setPoleName(name) {
+    const pole = this.poleDancer;
+    if (!pole || pole.user.name === name) return;
+    pole.user.name = name;
+    const old = pole.nameSprite;
+    if (old) {
+      if (old.material.map) old.material.map.dispose();
+      old.material.dispose();
+      pole.group.remove(old);
+    }
+    const sprite = makeNameSprite(name);
+    sprite.position.set(0, pole.nameBaseY, 0.02);
+    pole.nameSprite = sprite;
+    pole.group.add(sprite);
   }
 
-  // ---- Bàn DJ (top donor) ----
-  // Đưa dancer lên bàn DJ (CONFIG.djTable.spotPosition). Người cũ tự
-  // lerp về chỗ trên sàn (mode 'dance'). Chuyển động mượt, không nhảy cắt.
+  // Dọn trạng thái lồng khi đổi/mất top donor: chibi cũ hiện lại đúng
+  // slot cũ, vương miện tháo, tên lồng về mặc định. Dùng chung cho cả
+  // clearDjDancer (chưa có gift) và _removeDancer (top donor rời live).
+  _clearCageDonor() {
+    const prev = this.djDancer;
+    this.djDancer = null;
+    if (prev) {
+      prev.group.visible = true;
+      if (this.dancers.has(String(prev.user.uniqueId)) && prev.mode !== 'leaving') {
+        prev.mode = 'dance';
+        this._resetWanderTowardFloor(prev);
+      }
+    }
+    this._detachCrownFromPole();
+    this._setPoleName(CONFIG.dancers.poleDancer.defaultName);
+  }
+
+  // ---- Lồng sắt (top donor, user lệnh 02:22) ----
+  // Top donor ĐỨNG TRONG LỒNG SẮT: nhân vật múa cột mang tên + đội vương
+  // miện của họ; chibi riêng TẠM ẨN khỏi sàn (mỗi người chỉ xuất hiện 1
+  // lần). Khi mất top thì chibi hiện lại đúng slot cũ. Giữ nguyên tên hàm
+  // (main.js gọi setDjDancer/clearDjDancer/getDjDancer như cũ) — bàn DJ
+  // từ lệnh này chỉ còn làm cảnh, không đặt dancer ở đó nữa.
   setDjDancer(dancer) {
     if (!dancer) return false;
     if (this.djDancer === dancer) return true;
-    const prev = this.djDancer;
-    if (prev && this.dancers.has(String(prev.user.uniqueId))) {
-      prev.mode = 'dance';
-      // Về sàn thì đi dạo tiếp từ chỗ đang đứng (đi bộ về giữa sàn).
-      this._resetWanderTowardFloor(prev);
-    }
-    // Dancer đang ở bục VIP thì tắt spotlight nếu không còn ai ở bục.
+    this._clearCageDonor();
+    // Donor đang ở bục VIP thì tắt spotlight nếu không còn ai ở bục,
+    // và trả mode về dance để lúc hiện lại thì đi dạo bình thường.
     if (dancer.mode === 'vip') {
       const othersVip = [...this.dancers.values()].some(
         (o) => o !== dancer && o.mode === 'vip',
       );
       if (!othersVip && this.hooks.onVipSpotlight) this.hooks.onVipSpotlight(false);
+      dancer.mode = 'dance';
     }
-    dancer.mode = 'dj';
     this.djDancer = dancer;
-    // Top donor đội thêm vương miện vàng (chuyển cùng lúc với bàn DJ).
-    this._attachCrown(dancer);
+    dancer.group.visible = false;
+    this._setPoleName(dancer.user.name);
+    this._attachCrownToPole();
     return true;
   }
 
-  // Bàn DJ trống: người đang đứng về lại sàn. Gọi khi chưa có gift nào.
+  // Chưa có gift nào (hoặc top donor đã rời hẳn): lồng về trạng thái
+  // mặc định — người múa cột tên "Múa cột", không vương miện.
   clearDjDancer() {
-    this._detachCrown();
-    const prev = this.djDancer;
-    this.djDancer = null;
-    if (prev && this.dancers.has(String(prev.user.uniqueId)) && prev.mode === 'dj') {
-      prev.mode = 'dance';
-      this._resetWanderTowardFloor(prev);
-    }
+    this._clearCageDonor();
   }
 
   getDjDancer() {
@@ -1052,8 +1350,10 @@ export class DancerManager {
   }
 
   _removeDancer(dancer) {
-    if (this.crownedDancer === dancer) this._detachCrown();
-    if (this.djDancer === dancer) this.djDancer = null;
+    if (this.djDancer === dancer) this._clearCageDonor();
+    // Rời live thật (hết ân hạn) thì loại khỏi bảng xếp hạng lồng để
+    // top mới lên thay; bị đuổi do sàn đầy (leftAt null) thì không.
+    if (dancer.leftAt != null) departedDonorIds.add(String(dancer.user.uniqueId));
     this.scene.remove(dancer.group);
     this.dancers.delete(String(dancer.user.uniqueId));
     this.usedSlots.delete(dancer.slotIndex);
@@ -1069,7 +1369,7 @@ export class DancerManager {
   // ---- Bộ động tác nhảy thường (CONFIG.dancers.danceMoves) ----
   // Đổi động tác ở ranh giới bar nhạc; mỗi dancer lệch pha riêng nhờ
   // moveStartBar khởi tạo ngẫu nhiên. Chỉ gọi trong nhánh nhảy thường
-  // (mode 'dance') — DJ/VIP/đi vòng giữ nguyên hành vi cũ.
+  // (mode 'dance') — VIP/đi vòng/múa cột giữ nguyên hành vi riêng.
   _moveTick(dancer, barFloat) {
     const barIndex = Math.floor(barFloat);
     if (barIndex < dancer.moveStartBar + dancer.moveBars) return;
@@ -1164,7 +1464,7 @@ export class DancerManager {
       minZ: -halfD,
       maxZ: halfD,
       keepOuts: [
-        // Bàn DJ sau lưng (chỉ top donor đứng, người khác không vào).
+        // Bàn DJ sau lưng (từ 02:22 chỉ làm cảnh, vẫn là khu cấm đi dạo).
         rect(CONFIG.djTable.position[0], CONFIG.djTable.position[2],
           CONFIG.djTable.size[0], CONFIG.djTable.size[2]),
         // Bục VIP bên phải.
@@ -1173,6 +1473,16 @@ export class DancerManager {
         // Booth DJ bên trái.
         rect(CONFIG.stage.djPosition[0], CONFIG.stage.djPosition[2],
           CONFIG.stage.djBoothSize[0], CONFIG.stage.djBoothSize[2]),
+      ],
+      // Đĩa cấm quanh lồng sắt (lệnh 02:20): dancer khán giả không đi
+      // xuyên nan. Bán kính = nan lồng + đệm (slot vòng gần nhất cách
+      // tâm lồng ~2.0m nên slot vẫn ngoài đĩa này).
+      keepOutCircles: [
+        {
+          cx: CONFIG.scene.cage.centerX,
+          cz: CONFIG.scene.cage.centerZ,
+          r: CONFIG.scene.cage.radius + w.cageKeepOutMargin,
+        },
       ],
     };
     return this._wanderLimitsCache;
@@ -1187,11 +1497,15 @@ export class DancerManager {
       if (x >= r.minX - radius && x <= r.maxX + radius
         && z >= r.minZ - radius && z <= r.maxZ + radius) return true;
     }
+    for (const c of limits.keepOutCircles || []) {
+      if (Math.hypot(x - c.cx, z - c.cz) < c.r + radius) return true;
+    }
     return false;
   }
 
   // Kẹp 1 điểm (Vector3, chỉ dùng x/z) vào vùng đi dạo: kẹp mép sàn,
-  // rồi đẩy ra khỏi khu cấm theo cạnh gần nhất.
+  // rồi đẩy ra khỏi khu cấm theo cạnh gần nhất, rồi đẩy ra khỏi đĩa cấm
+  // theo hướng tâm (đĩa lồng sắt).
   _clampPointToWander(pos, limits) {
     pos.x = Math.min(limits.maxX, Math.max(limits.minX, pos.x));
     pos.z = Math.min(limits.maxZ, Math.max(limits.minZ, pos.z));
@@ -1208,6 +1522,19 @@ export class DancerManager {
         else pos.z = r.maxZ;
       }
     }
+    for (const c of limits.keepOutCircles || []) {
+      const dx = pos.x - c.cx;
+      const dz = pos.z - c.cz;
+      const dist = Math.hypot(dx, dz);
+      if (dist < c.r) {
+        if (dist < 1e-6) {
+          pos.x = c.cx + c.r;
+        } else {
+          pos.x = c.cx + (dx / dist) * c.r;
+          pos.z = c.cz + (dz / dist) * c.r;
+        }
+      }
+    }
     return pos;
   }
 
@@ -1215,7 +1542,7 @@ export class DancerManager {
     return this._clampPointToWander(dancer.group.position, limits);
   }
 
-  // Về lại chế độ đi dạo sau khi rời bàn DJ / bục VIP / đi vòng: hướng
+  // Về lại chế độ đi dạo sau khi rời bục VIP / đi vòng / đứng lồng: hướng
   // thẳng về giữa sàn (đi bộ về, không nhảy cắt), đổi hướng ngẫu nhiên
   // lại sau 1 giây. Reset cả độ lệch ngang để khỏi giật.
   _resetWanderTowardFloor(dancer) {
@@ -1279,7 +1606,9 @@ export class DancerManager {
     const w = CONFIG.dancers.wander;
     const limits = this._wanderLimits();
     const movers = [...this.dancers.values()].filter(
-      (d) => d.mode === 'dance' && d.enterProgress >= 1,
+      // Chibi của top donor đang đứng lồng (ẩn, đứng yên tại slot) thì
+      // không tham gia tách — khỏi đẩy người khác / bị đẩy khỏi slot.
+      (d) => d.mode === 'dance' && d.enterProgress >= 1 && d !== this.djDancer,
     );
     for (let pass = 0; pass < 2; pass += 1) {
       for (let i = 0; i < movers.length; i += 1) {
@@ -1323,7 +1652,12 @@ export class DancerManager {
     const d = CONFIG.dancers;
     // Hàng đợi skill chạy trước để pose trong frame này đã đúng.
     this._tickSkill(time);
-    for (const dancer of [...this.dancers.values()]) {
+    // Người múa cột chạy chung vòng lặp (kể cả khi sàn chưa có viewer
+    // nào — lồng mặc định vẫn phải múa), nhưng không nằm trong map.
+    const allDancers = this.poleDancer
+      ? [...this.dancers.values(), this.poleDancer]
+      : [...this.dancers.values()];
+    for (const dancer of allDancers) {
       const { group } = dancer;
 
       if (dancer.mode === 'leaving') {
@@ -1338,14 +1672,19 @@ export class DancerManager {
 
       // Chỉ người ĐÃ RỜI live mới rời sàn, sau leaveGraceSeconds ân hạn
       // (user lệnh 00:43). Người còn xem — dù im lặng bao lâu — vẫn ở lại.
-      // Mọi mode đều áp (DJ/VIP cũng vậy; đường rời sàn sẵn có tự dọn
-      // vương miện + bàn DJ). Tín hiệu rời giữa chừng (skill ≤ ~30s) chỉ
-      // bắt đầu đếm ân hạn, không cắt ngang skill.
+      // Mọi mode đều áp (VIP cũng vậy; đường rời sàn sẵn có tự dọn lồng
+      // + vương miện). Tín hiệu rời giữa chừng (skill ≤ ~30s) chỉ bắt
+      // đầu đếm ân hạn, không cắt ngang skill.
       const graceSeconds = d.leaveGraceSeconds || 600;
       if (dancer.leftAt != null && time - dancer.leftAt > graceSeconds) {
         this.startLeave(dancer);
         continue;
       }
+
+      // Chibi của top donor đang đứng lồng: ẩn tại slot, không di chuyển,
+      // không nhảy, không áp động tác (luật rời 10 phút đã chạy ở trên;
+      // hết ân hạn thì startLeave → _removeDancer dọn lồng).
+      if (dancer === this.djDancer) continue;
 
       // Vào sàn: lớn dần + hiện dần (đích = CONFIG.dancers.scale).
       if (dancer.enterProgress < 1) {
@@ -1375,8 +1714,8 @@ export class DancerManager {
       const amp = d.bobAmplitude * (0.4 + dancer.energy);
       let y = dancer.baseY + Math.max(0, swing) * amp * 2;
       // Bộ động tác thường: tính cho mọi dancer để nhịp luôn theo bar;
-      // chỉ nhánh nhảy thường (mode 'dance') mới áp offset (DJ/VIP/đi
-      // vòng giữ nguyên hành vi cũ, skill đè lên rồi về lại bộ này).
+      // chỉ nhánh nhảy thường (mode 'dance') mới áp offset (VIP/đi vòng/
+      // múa cột giữ nguyên hành vi riêng, skill đè lên rồi về lại bộ này).
       const movePose = this._movePose(dancer, time);
 
       if (dancer.mode === 'orbit') {
@@ -1394,16 +1733,59 @@ export class DancerManager {
         group.position.z = CONFIG.stage.vipPosition[2];
         group.position.y = CONFIG.stage.vipPlatformSize[1] + Math.max(0, swing) * amp;
         group.rotation.y = 0;
-      } else if (dancer.mode === 'dj') {
-        // Đứng bàn DJ sau lưng: lerp mượt tới chỗ đứng sau bàn, quay mặt
-        // ra camera, nhún nhẹ theo nhịp. Skill (nếu có) chạy tại chỗ ở
-        // bàn DJ: khối santo bên dưới sẽ ghi đè y/rotation.x khi cần.
-        const spot = CONFIG.djTable.spotPosition;
-        const djLerp = Math.min(1, dt * (CONFIG.djTable.moveLerpSpeed || 3));
-        group.position.x += (spot[0] - group.position.x) * djLerp;
-        group.position.z += (spot[2] - group.position.z) * djLerp;
-        group.position.y = dancer.baseY + Math.abs(swing) * amp * 0.5;
-        group.rotation.y = 0;
+      } else if (dancer.mode === 'pole') {
+        // Múa cột trong lồng (lệnh 02:20/02:21): bám cột, xoay quanh cột,
+        // quay mặt vào cột, đổi tư thế theo bar nhạc, nhanh/chậm theo beat.
+        // Skill (nếu có) chạy tại chỗ bên cột: khối santo bên dưới ghi đè
+        // y/rotation.x khi cần; khối armsUp bên dưới ghi đè tay khi cần.
+        const pc = CONFIG.dancers.poleDancer;
+        const cage = CONFIG.scene.cage;
+        // Đổi tư thế theo bar nhạc trước (tư thế xoay nhanh có hệ số riêng).
+        const poleBpm = (CONFIG.music && CONFIG.music.bpm) || 128;
+        const poleBeatsPerBar = (CONFIG.music && CONFIG.music.beatsPerBar) || 4;
+        const barFloat = (time * poleBpm) / (60 * poleBeatsPerBar);
+        const barIndex = Math.floor(barFloat);
+        if (barIndex !== dancer.polePoseBar) {
+          dancer.polePoseBar = barIndex;
+          dancer.polePoseIndex = (dancer.polePoseIndex + 1) % pc.poseCount;
+        }
+        const poseSpin = [1, 0.8, 0.9, 1.6][dancer.polePoseIndex] || 1;
+        const beatPulse = Math.max(0, Math.sin(beatPhase * Math.PI * 2));
+        dancer.poleAngle += dt * pc.spinSpeed * (1 + pc.spinBeatBoost * beatPulse) * poseSpin;
+        const px = cage.centerX + Math.cos(dancer.poleAngle) * pc.orbitRadius;
+        const pz = cage.centerZ + Math.sin(dancer.poleAngle) * pc.orbitRadius;
+        group.position.set(px, Math.max(0, swing) * amp * 0.5, pz);
+        // Quay mặt vào cột: hướng nhìn = từ vị trí về tâm lồng.
+        group.rotation.y = -dancer.poleAngle - Math.PI / 2;
+        // Tư thế theo bar: 0 ôm cột 2 tay trên cao, 1 nghiêng người 1 tay
+        // ôm cột, 2 co 1 chân + 1 tay chống hông, 3 dang 2 tay xoay nhanh.
+        const hold = Math.sin(beatPhase * Math.PI * 2);
+        const pose = dancer.polePoseIndex;
+        if (pose === 0) {
+          dancer.poleArmL = { x: -2.7 + hold * 0.06, z: 0.5 };
+          dancer.poleArmR = { x: -2.7 - hold * 0.06, z: -0.5 };
+          dancer.poleLegL = 0;
+          dancer.poleLegR = 0;
+          dancer.poleLeanZ = hold * 0.04;
+        } else if (pose === 1) {
+          dancer.poleArmL = { x: -2.8, z: 0.4 };
+          dancer.poleArmR = { x: -0.4 + hold * 0.1, z: -1.2 };
+          dancer.poleLegL = 0;
+          dancer.poleLegR = -0.3;
+          dancer.poleLeanZ = 0.28 + hold * 0.03;
+        } else if (pose === 2) {
+          dancer.poleArmL = { x: -2.6, z: 0.6 };
+          dancer.poleArmR = { x: -0.9, z: -0.9 };
+          dancer.poleLegL = -1.1;
+          dancer.poleLegR = 0.1;
+          dancer.poleLeanZ = 0.12 + hold * 0.03;
+        } else {
+          dancer.poleArmL = { x: -0.6 + hold * 0.1, z: 1.9 };
+          dancer.poleArmR = { x: -0.6 - hold * 0.1, z: -1.9 };
+          dancer.poleLegL = 0.15;
+          dancer.poleLegR = -0.15;
+          dancer.poleLeanZ = hold * 0.05;
+        }
       } else {
         // Nhảy thường + đi dạo tự do (CONFIG.dancers.wander): vừa đi
         // vừa nhảy, đổi hướng mềm, giữ khoảng cách (tách nhau ở cuối
@@ -1478,7 +1860,6 @@ export class DancerManager {
 
       // Tay + chân đung đưa theo nhịp, mạnh dần theo energy. Động tác vung
       // tay: tay đung đưa mạnh hơn + quét lên/xuống xen kẽ theo nhịp.
-      const isDj = dancer.mode === 'dj';
       const armSwing = swing * d.armSwingAmplitude * (0.35 + dancer.energy)
         * (dancer.mode === 'dance' ? movePose.armAmp : 1);
       const sweep = dancer.mode === 'dance'
@@ -1489,35 +1870,32 @@ export class DancerManager {
         dancer.armR.rotation.z = THREE.MathUtils.lerp(-0.25 - armSwing, 2.6, armsUp);
         dancer.armL.rotation.x = THREE.MathUtils.lerp(-armSwing * 0.4, -0.3, armsUp);
         dancer.armR.rotation.x = THREE.MathUtils.lerp(armSwing * 0.4, -0.3, armsUp);
-      } else if (isDj) {
-        // Tư thế chơi DJ: 2 tay đưa ra trước đặt lên bàn, đung đưa nhẹ
-        // theo nhịp (tay vẫn giơ lên được khi chạy skill, nhánh trên lo).
-        const djCfg = CONFIG.djTable;
-        const djBob = swing * (djCfg.armBobAmplitude || 0.08);
-        dancer.armL.rotation.x = (djCfg.armForwardX || -1.05) + djBob;
-        dancer.armR.rotation.x = (djCfg.armForwardX || -1.05) - djBob;
-        dancer.armL.rotation.z = 0.15;
-        dancer.armR.rotation.z = -0.15;
+      } else if (dancer.mode === 'pole') {
+        // Múa cột: tay/chân theo tư thế của bar hiện tại (nhánh pole ở
+        // trên đã tính sẵn; tay vẫn giơ lên được khi chạy skill/lệnh,
+        // nhánh armsUp trên lo).
+        dancer.armL.rotation.set(dancer.poleArmL.x, 0, dancer.poleArmL.z);
+        dancer.armR.rotation.set(dancer.poleArmR.x, 0, dancer.poleArmR.z);
       } else {
         dancer.armL.rotation.z = 0.25 + armSwing;
         dancer.armR.rotation.z = -0.25 - armSwing;
         dancer.armL.rotation.x = -armSwing * 0.4 - sweep;
         dancer.armR.rotation.x = armSwing * 0.4 + sweep;
       }
-      if (isDj && !dancer.skillKind) {
-        // Đứng bàn DJ thì chân đứng yên (chỉ nhún người theo nhịp).
-        dancer.legL.rotation.x = 0;
-        dancer.legR.rotation.x = 0;
+      if (dancer.mode === 'pole') {
+        dancer.legL.rotation.x = dancer.poleLegL;
+        dancer.legR.rotation.x = dancer.poleLegR;
       } else {
         dancer.legL.rotation.x = -swing * 0.45 * (0.35 + dancer.energy);
         dancer.legR.rotation.x = swing * 0.45 * (0.35 + dancer.energy);
       }
-      // Cả người hơi nghiêng theo nhịp (trừ lúc santo / đứng bàn DJ);
-      // động tác lắc hông cộng thêm nghiêng + dịch ngang (nhánh nhảy thường).
+      // Cả người hơi nghiêng theo nhịp (trừ lúc santo); động tác lắc hông
+      // cộng thêm nghiêng + dịch ngang (nhánh nhảy thường); múa cột cộng
+      // thêm nghiêng theo tư thế.
       group.rotation.z = swing * 0.05 * (0.5 + dancer.energy)
-        + (dancer.mode === 'dance' ? movePose.swayZ : 0);
+        + (dancer.mode === 'dance' ? movePose.swayZ : 0)
+        + (dancer.mode === 'pole' ? (dancer.poleLeanZ || 0) : 0);
       if (dancer.mode === 'orbit') group.rotation.z = 0;
-      if (isDj) group.rotation.z = 0;
       if (somersaulting) group.rotation.z = 0;
     }
     // Cuối frame: tách các dancer đi dạo để giữ khoảng cách tối thiểu

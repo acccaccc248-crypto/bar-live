@@ -84,23 +84,35 @@ export const CONFIG = {
   // xem _buildSlots trong dancers.js); tâm dời +z để vành sau không
   // chạm quầy bar (z=-4.9). Không thu nhỏ slot, không sửa dancers.js.
   scene: {
+    // Lồng sắt tròn giữa sàn (lệnh 01:53 + thu nhỏ 02:20): bên trong CHỈ
+    // có 1 người múa cột; dancer khán giả nhảy bên NGOÀI, vòng quanh.
+    // Quả cầu disco treo TRÊN CAO phía trên lồng (không còn trong lồng).
     cage: {
       centerX: 0,
       centerZ: 0.4,
-      radius: 4.8,
-      barCount: 48,
+      radius: 1.4, // vừa 1 người múa cột + cột, tay dang không chạm nan
+      barCount: 14, // chu vi ~8.8m, giữ khoảng cách nan ~0.63m như lồng lớn cũ
       barRadius: 0.035,
-      barHeight: 3.3,
+      barHeight: 2.8, // nan cao hơn cột (2.6m)
       barBaseY: 0.1,
       barColor: 0x1a1a24,
-      domeHeight: 1.5,
-      domeRibs: 16,
+      domeHeight: 1.0,
+      domeRibs: 12,
       ringColor: 0x2a2a38,
       baseColor: 0x0e0a18,
       neonColors: [0xff2e88, 0xff5fd0],
       // Tâm quả cầu disco (bán kính/tốc độ quay vẫn ở CONFIG.discoBall);
-      // đáy cầu (~3.65m) cao hơn đỉnh santo của dancer (~3.45m).
-      ballY: 4.2,
+      // treo trên cao, trên đỉnh vòm lồng (đỉnh vòm ~3.9m, đáy cầu ~4.9m).
+      ballY: 5.45,
+    },
+
+    // Cột múa ở đúng tâm lồng (lệnh 02:20): kim loại sáng, 1 mesh + đế.
+    pole: {
+      radius: 0.05,
+      height: 2.6,
+      baseRadius: 0.22,
+      baseHeight: 0.06,
+      color: 0xd8dce8,
     },
     lasers: {
       colors: [0xff2e88, 0x00e5ff, 0x7c4dff],
@@ -216,12 +228,12 @@ export const CONFIG = {
       avatarSpriteY: 2.32,
       nameSpriteY: 2.62,
     },
-    // Vương miện vàng của top donor (user lệnh 22:26): đội trên đỉnh tóc
-    // bát úp, chỉ có ĐÚNG 1 cái, gắn theo logic top donor sẵn có (đổi top
-    // thì chuyển, hòa điểm giữ nguyên, chưa có gift thì không có).
-    // Tọa độ theo headGroup (gốc ở tâm đầu, tâm đầu cao headCenterY):
-    // vòng ôm đúng mặt ngoài tóc ở bandY, chóp vươn lên nhưng vẫn dưới
-    // đĩa avatar sau khi nâng nhãn (labelLiftY).
+    // Vương miện vàng của top donor (user lệnh 22:26 + 02:22): từ 02:22
+    // vương miện đội lên NGƯỜI MÚA CỘT TRONG LỒNG (mang tên top donor),
+    // không còn đội lên chibi nữa; chỉ có ĐÚNG 1 cái, đổi top thì chuyển,
+    // hòa điểm giữ nguyên, chưa có gift thì không có. Tọa độ theo headGroup
+    // (gốc ở tâm đầu); khi gắn lên đầu người múa cột thì thu nhỏ theo
+    // poleDancer.crownScale, chóp vẫn dưới nhãn tên sau khi nâng nhãn.
     crown: {
       bandRadius: 0.4,
       bandHeight: 0.14,
@@ -234,16 +246,65 @@ export const CONFIG = {
       goldColor: 0xffd700,
       goldEmissive: 0x6b4e00,
       jewelColor: 0xff2255,
-      // Nâng nhãn tên/avatar khi đội vương miện để chóp không chạm đĩa avatar.
+      // Nâng nhãn tên/avatar khi đội vương miện để chóp không chạm nhãn.
       labelLiftY: 0.16,
+    },
+
+    // Slot của dancer khán giả: vòng ellipse QUANH LỒNG NHỎ (lệnh 02:20),
+    // lệch nửa bước góc để không có slot nào chắn chính diện lồng.
+    // Mọi slot đều ngoài đĩa cấm quanh lồng (nan 1.4m + đệm 0.35m) và
+    // trong vùng đi dạo (z ≤ 2.21m), không chạm khu cấm VIP (x ≥ 3.95m).
+    slotRing: {
+      centerX: 0,
+      centerZ: 0.35,
+      radiusX: 3.8,
+      radiusZ: 1.85,
+    },
+
+    // Người múa cột trong lồng (lệnh 02:20/02:21/02:22): MỸ NỮ trưởng
+    // thành — KHÔNG dùng mẫu chibi đầu to tóc bát úp. Dựng riêng body nữ
+    // trưởng thành, cùng phong cách 3D stylized của cảnh, tông neon tím/hồng.
+    // Tỷ lệ (m, scale 1.0 — cao ~1.83m, cao hơn chibi ~1.63m):
+    // chân dài 0.92m (hông cao 0.95m), eo thon (thân trên 0.15m / dưới
+    // 0.17m), ngực lớn (2 cầu r=0.13), tóc dài tới giữa lưng (0.62m),
+    // đồ diễn bar: áo tím hồng neon + quần short tím đậm + bốt tối.
+    poleDancer: {
+      defaultName: 'Múa cột',
+      legLength: 0.92,
+      legRadius: 0.06,
+      hipY: 0.95,
+      shoulderY: 1.42,
+      shoulderDX: 0.24,
+      armLength: 0.52,
+      armRadius: 0.05,
+      chestY: 1.38,
+      bustRadius: 0.13,
+      bustDX: 0.11,
+      bustDZ: 0.09,
+      headRadius: 0.21,
+      headCenterY: 1.64,
+      hairLength: 0.62,
+      skinColor: 0xffd9b3,
+      hairColor: 0x1a0d24,
+      topColor: 0xff2e88,
+      topEmissive: 0x550a2e,
+      shortsColor: 0x2a0f3d,
+      bootColor: 0x11111c,
+      nameSpriteY: 2.14,
+      crownScale: 0.55, // vương miện thu nhỏ theo đầu người thật
+      orbitRadius: 0.34, // bám sát cột (cột r=0.05, tay với tới cột)
+      spinSpeed: 1.1, // rad/s cơ bản quanh cột
+      spinBeatBoost: 0.7, // cộng thêm theo nhịp (nhanh/chậm theo beat)
+      poseCount: 4, // đổi tư thế theo bar nhạc: ôm cột / nghiêng / co chân / dang tay
     },
     // Bộ động tác nhảy thường (user lệnh 22:29, chê đứng 1 chỗ nhàm):
     // đổi theo ranh giới bar nhạc (4 nhịp/bar, BPM trong CONFIG.music),
     // mỗi dancer lệch pha/ngẫu nhiên riêng. Từ 23:26 dancer đi dạo tự
     // do khắp sàn (CONFIG.dancers.wander): bước ngang/lắc hông dịch
     // ngang theo hướng vuông góc với hướng đi rồi về lại đường đi,
-    // không về ô cố định nữa. Dancer bàn DJ KHÔNG làm bộ này (giữ tư
-    // thế DJ); skill đè lên động tác thường, xong skill thì về lại bộ này.
+    // không về ô cố định nữa. Người múa cột trong lồng KHÔNG làm bộ này
+    // (múa cột riêng theo bar); skill đè lên động tác thường, xong skill
+    // thì về lại bộ này.
     danceMoves: {
       beatsPerBar: 4,
       // Bước ngang: dịch sang trái/phải rồi về ô (nhỏ hơn khoảng cách ô).
@@ -289,6 +350,9 @@ export const CONFIG = {
       edgeMargin: 0.55,
       // Đệm quanh các khu cấm (bàn DJ, bục VIP, booth DJ) khi tránh.
       keepOutPadding: 0.35,
+      // Đệm thêm quanh lồng sắt (tính từ nan lồng): dancer không đi
+      // xuyên nan, tay vung không chạm lồng.
+      cageKeepOutMargin: 0.35,
       // Bán kính nhìn trước khi tránh tường/vật cản (m).
       lookAhead: 0.5,
     },

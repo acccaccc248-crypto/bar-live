@@ -143,10 +143,10 @@ export function createBarScene() {
     blobMats.push({ mat, baseOpacity: def.opacity });
   });
 
-  // ---- LỒNG SẮT TRUNG TÂM: dancer nhảy bên trong ----
-  // Bán kính chứa vừa lưới slot (slot xa tâm nhất 4.63m — xem
-  // _buildSlots trong dancers.js; KHÔNG thu nhỏ slot, KHÔNG sửa dancers.js).
-  // Tâm lồng dời +z để vành sau không chạm quầy bar (z=-4.9).
+  // ---- LỒNG SẮT NHỎ TRUNG TÂM: chỉ 1 người múa cột bên trong ----
+  // Lệnh 02:20: thu nhỏ còn ~1.4m (vừa 1 người + cột, tay dang không
+  // chạm nan); dancer khán giả nhảy bên NGOÀI, vòng quanh lồng (slot
+  // vòng trong dancers.js). Tâm lồng giữ nguyên như cũ.
   const cageCfg = CONFIG.scene.cage;
   const cageR = cageCfg.radius;
   const cageX = cageCfg.centerX;
@@ -177,17 +177,17 @@ export function createBarScene() {
   bars.instanceMatrix.needsUpdate = true;
   cageGroup.add(bars);
 
-  // 3 vành ngang kim loại (đáy, giữa, đỉnh trụ).
+  // 3 vành ngang kim loại (đáy, giữa, đỉnh trụ) — vành giữa theo tỉ lệ chiều cao.
   const ringGeo = new THREE.TorusGeometry(cageR, 0.05, 6, 64);
   const ringMat = new THREE.MeshLambertMaterial({ color: cageCfg.ringColor });
-  [0.35, 1.9, barTopY - 0.05].forEach((y) => {
+  [0.35, barTopY * 0.55, barTopY - 0.05].forEach((y) => {
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = Math.PI / 2;
     ring.position.set(cageX, y, cageZ);
     cageGroup.add(ring);
   });
 
-  // Vòm: 16 nan cong (TorusGeometry arc 90° ép dẹt theo chiều cao vòm),
+  // Vòm: nan cong (TorusGeometry arc 90° ép dẹt theo chiều cao vòm),
   // 1 InstancedMesh (1 draw call).
   const ribGeo = new THREE.TorusGeometry(cageR, 0.03, 4, 20, Math.PI / 2);
   ribGeo.scale(1, cageCfg.domeHeight / cageR, 1);
@@ -239,9 +239,28 @@ export function createBarScene() {
     cageGroup.add(neonRing);
   });
 
-  // ---- Quả cầu disco treo TRONG lồng, trên cao ----
+  // ---- CỘT MÚA ở đúng tâm lồng (lệnh 02:20) ----
+  // 1 cột kim loại mảnh + đế nhỏ, không thêm đèn/shadow.
+  const poleCfg = CONFIG.scene.pole;
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(poleCfg.radius, poleCfg.radius, poleCfg.height, 10),
+    new THREE.MeshPhongMaterial({
+      color: poleCfg.color, specular: 0xffffff, shininess: 90,
+    }),
+  );
+  pole.position.set(cageX, poleCfg.height / 2, cageZ);
+  cageGroup.add(pole);
+  const poleBase = new THREE.Mesh(
+    new THREE.CylinderGeometry(poleCfg.baseRadius, poleCfg.baseRadius + 0.04, poleCfg.baseHeight, 20),
+    new THREE.MeshLambertMaterial({ color: cageCfg.baseColor }),
+  );
+  poleBase.position.set(cageX, poleCfg.baseHeight / 2, cageZ);
+  cageGroup.add(poleBase);
+
+  // ---- Quả cầu disco treo TRÊN CAO phía trên lồng ----
+  // Lệnh 02:20: dời lên khỏi lồng nhỏ (đỉnh vòm ~3.9m, đáy cầu ~4.9m).
   // Bán kính/tốc độ quay giữ ở CONFIG.discoBall; vị trí theo tâm lồng.
-  // Đáy cầu cao hơn đỉnh santo của dancer (~3.45m) để không chạm đầu.
+  // Thanh treo kéo dài từ đỉnh cầu lên giàn đèn trên cao (~6.5m).
   const discoBallMat = new THREE.MeshLambertMaterial({
     color: 0xd9d9e8,
     emissive: 0x555577,
@@ -253,13 +272,15 @@ export function createBarScene() {
   );
   discoBall.position.set(cageX, cageCfg.ballY, cageZ);
   scene.add(discoBall);
+  const rodTopY = 6.5;
+  const rodLen = rodTopY - (cageCfg.ballY + CONFIG.discoBall.radius);
   const ballRod = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.02, 0.02, 0.2, 5),
+    new THREE.CylinderGeometry(0.02, 0.02, rodLen, 5),
     new THREE.MeshBasicMaterial({ color: 0x888899 }),
   );
   ballRod.position.set(
     cageX,
-    cageCfg.ballY + CONFIG.discoBall.radius + 0.08,
+    cageCfg.ballY + CONFIG.discoBall.radius + rodLen / 2 - 0.05,
     cageZ,
   );
   scene.add(ballRod);

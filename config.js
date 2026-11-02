@@ -133,6 +133,10 @@ export const CONFIG = {
     orbitDurationSeconds: 8,
     orbitRadius: 3.2,
     orbitSpeed: 1.1,
+    // Lệnh chat "giơ tay" (user lệnh 23:36): giơ 2 tay lên, blend mượt
+    // vào/ra như skill, không qua hàng đợi skill, không lia camera.
+    commandArmsUpDurationSeconds: 2.5,
+    commandArmsUpBlendSeconds: 0.3,
     // Kích thước figure chibi meme (đơn vị scene): đầu to, thân nhỏ,
     // tay chân ngắn — theo ảnh tham chiếu user gửi (tóc bát úp, mặt meme).
     headRadius: 0.52,

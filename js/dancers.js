@@ -540,6 +540,9 @@ export class DancerManager {
       orbitAngle: Math.random() * Math.PI * 2,
       jumpUntil: 0,
       jumpStartedAt: 0,
+      // Lệnh chat "giơ tay": cờ thời gian như jump (đặt từ applyCommand).
+      armsUpStartedAt: 0,
+      armsUpUntil: 0,
       vipUntil: 0,
       baseY: 0,
       // Trạng thái skill nhảy theo gift (CONFIG.skills).
@@ -612,6 +615,12 @@ export class DancerManager {
       if (dancer.mode === 'dj') return dancer;
       dancer.mode = 'orbit';
       dancer.orbitUntil = now + CONFIG.dancers.orbitDurationSeconds;
+      this.boost(dancer, CONFIG.dancers.energyBoostChat);
+    } else if (commandKey === 'armsUp') {
+      // Lệnh "giơ tay": DJ giữ tư thế DJ, không áp (như 'đi vòng').
+      if (dancer.mode === 'dj') return dancer;
+      dancer.armsUpStartedAt = now;
+      dancer.armsUpUntil = now + CONFIG.dancers.commandArmsUpDurationSeconds;
       this.boost(dancer, CONFIG.dancers.energyBoostChat);
     }
     return dancer;
@@ -1336,6 +1345,13 @@ export class DancerManager {
         const elapsedSkill = time - dancer.skillStartedAt;
         const remainSkill = dancer.skillUntil - time;
         armsUp = Math.min(1, Math.max(0, elapsedSkill / blend), Math.max(0, remainSkill / blend));
+      } else if (time < dancer.armsUpUntil) {
+        // Lệnh chat "giơ tay": blend vào/ra như skill; skill đang chạy
+        // thì nhánh trên đã đè lên.
+        const cmdBlend = d.commandArmsUpBlendSeconds || 0.3;
+        const elapsedCmd = time - dancer.armsUpStartedAt;
+        const remainCmd = dancer.armsUpUntil - time;
+        armsUp = Math.min(1, Math.max(0, elapsedCmd / cmdBlend), Math.max(0, remainCmd / cmdBlend));
       } else if (dancer.mode === 'dance' && movePose.hopArms > 0) {
         armsUp = Math.min(1, movePose.hopArms * 0.85);
       }

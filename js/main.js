@@ -228,6 +228,14 @@ window.addEventListener('resize', onResize);
 document.addEventListener('fullscreenchange', () => window.setTimeout(onResize, 100));
 window.addEventListener('orientationchange', () => window.setTimeout(onResize, 300));
 
+// ---- Đèn sàn theo đúng nhịp nhạc đang phát (fix lệch BPM 23:29) ----
+// Engine đã có onBeat theo BPM thật từng track (file) / từng bước (synth).
+// Khi nhạc chưa chạy, vòng animate giữ nhịp 128 BPM làm fallback để sàn
+// không tối (xem guard `!music.playing` trong animate()).
+music.onBeat = (beatCount) => {
+  try { barScene.pulseBeat(beatCount); } catch (e) { /* bỏ qua */ }
+};
+
 // ---- Animation loop: delta clamp + nhịp theo BPM ----
 const clock = new THREE.Clock();
 let elapsed = 0;
@@ -246,7 +254,9 @@ function animate() {
   const beatPhase = beatFloat - beatIndex;
   if (beatIndex !== lastBeatIndex) {
     lastBeatIndex = beatIndex;
-    barScene.pulseBeat(beatIndex);
+    // Fallback 128 BPM chỉ khi nhạc chưa chạy; nhạc đang phát thì đèn đã
+    // theo onBeat của engine (đúng BPM từng track), tránh nhấp 2 nhịp.
+    if (!music.playing) barScene.pulseBeat(beatIndex);
   }
 
   dancers.update(dt, elapsed, beatPhase);

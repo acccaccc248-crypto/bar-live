@@ -196,33 +196,64 @@ export const CONFIG = {
     // vào/ra như skill, không qua hàng đợi skill, không lia camera.
     commandArmsUpDurationSeconds: 2.5,
     commandArmsUpBlendSeconds: 0.3,
-    // Kích thước figure chibi meme (đơn vị scene): đầu to, thân nhỏ,
-    // tay chân ngắn — theo ảnh tham chiếu user gửi (tóc bát úp, mặt meme).
-    headRadius: 0.52,
+    // Kích thước figure chibi Khá Bảnh (đơn vị scene): đầu to vừa phải,
+    // thân nhỏ, tay chân cân đối — theo lệnh sếp 02:36 + polish 02:40
+    // (đầu/tay/chân hài hòa, không đầu quá to, tay dài tới giữa đùi).
+    headRadius: 0.5,
     bodyHeight: 0.5,
     bodyRadius: 0.3,
-    armLength: 0.42,
-    armRadius: 0.07,
-    legLength: 0.42,
-    legRadius: 0.09,
+    armLength: 0.46,
+    armRadius: 0.065,
+    legLength: 0.44,
+    legRadius: 0.085,
     avatarRadius: 0.21,
     nameLabelWidth: 1.5,
     nameLabelHeight: 0.28,
-    // Nhân vật chibi meme: tóc bát úp đen, mặt trắng vẽ nét đen bằng
-    // canvas texture (8 biến thể biểu cảm, dùng chung — không asset ngoài).
+    // Nhân vật Khá Bảnh (lệnh sếp 02:36 + polish 02:40): tóc vuốt keo
+    // chải ngược gọn gàng, hơi bóng; mặt trắng vẽ nét mảnh bằng canvas
+    // texture — MỌI biến thể đều đeo kính đen, nét sạch, không lem/chồng
+    // nét; áo đen sang + viền vàng vừa phải (vòng cổ vàng ở dưới).
     chibi: {
-      headCenterY: 1.52,
+      headCenterY: 1.5,
       hairRadius: 0.55,
-      hairThetaLength: 1.15,
-      hairTiltX: 0.12,
+      // Nắp cầu ngắn hơn + nghiêng hẳn về sau = tóc vuốt keo chải ngược,
+      // trán thoáng, gáy phủ kín tới ngang đầu (không lòa xòa trước mặt).
+      hairThetaLength: 1.05,
+      hairTiltX: -0.5,
+      hairOffset: [0, 0.04, -0.03],
       hairColor: 0x141414,
+      // Độ bóng nhẹ của keo vuốt tóc (MeshPhongMaterial).
+      hairSpecular: 0x555555,
+      hairShininess: 25,
       faceCanvasSize: 512,
       faceLineColor: '#151515',
-      faceVariants: ['cuoi-ha', 'nhe-rang', 'kinh', 'tinh-nghich', 'buon-ngu', 'ngac-nhien', 'kinh-ram', 'nguong'],
-      // Áo thun xám (nhiều sắc độ, thêm 3 sắc trầm), quần short tối màu, tay chân trắng.
-      shirtGrays: [0x9aa0a6, 0x868c93, 0xaab0b6, 0x767c84, 0x6b7280, 0x5b6b5c, 0x4a5a6b],
+      // Nét vẽ mặt mảnh, sạch (không tô dày như mặt meme cũ).
+      faceLineWidth: 8,
+      faceVariants: ['kinh-cuoi', 'kinh-khay', 'kinh-ha', 'kinh-nhe-rang', 'kinh-ngau', 'kinh-nhay', 'kinh-ngac', 'kinh-leu'],
+      // Áo đen/tối sang (không còn áo xám); quần short tối màu, tay chân trắng.
+      shirtColors: [0x17171c, 0x1f1f26, 0x23232b, 0x141419, 0x26221a, 0x1c222e, 0x2b2b2b],
       shortsColor: 0x2b2f36,
       skinWhite: 0xffffff,
+      // Dây chuyền vàng + viền cổ vàng (lệnh 02:36, polish 02:40: nổi
+      // bật nhưng tinh tế, không thô): vòng mảnh quanh cổ, mặt dây nhỏ
+      // trước ngực, vòng cổ vàng mảnh viền áo — vàng phát sáng vừa.
+      chain: {
+        // Vòng cổ: bán kính lớn hơn bán kính thân (0.30) để nổi trên mặt
+        // ngực, nghiêng nhẹ cho vạt trước rủ xuống như dây đeo thật.
+        torusRadius: 0.32,
+        torusTube: 0.02,
+        torusY: 1.08,
+        torusTilt: 0.25,
+        collarRadius: 0.3,
+        collarTube: 0.018,
+        collarY: 1.13,
+        pendantRadius: 0.045,
+        pendantY: 0.94,
+        pendantZ: 0.31,
+        goldColor: 0xffd700,
+        goldEmissive: 0x6b4e00,
+        goldEmissiveIntensity: 0.35,
+      },
       // Nhãn nhận diện viewer: avatar + tên nổi TRÊN đầu (Sprite luôn
       // quay về camera), không che mặt meme.
       avatarSpriteY: 2.32,
@@ -268,34 +299,80 @@ export const CONFIG = {
     // chân dài 0.92m (hông cao 0.95m), eo thon (thân trên 0.15m / dưới
     // 0.17m), ngực lớn (2 cầu r=0.13), tóc dài tới giữa lưng (0.62m),
     // đồ diễn bar: áo tím hồng neon + quần short tím đậm + bốt tối.
+    // Người múa cột trong lồng (lệnh 02:20/02:21/02:22 + tả thực 02:44):
+    // NỮ TRƯỞNG THÀNH TỶ LỆ NGƯỜI THẬT — cao ~1,75m, đầu ~1/7,5 chiều
+    // cao (bỏ đầu to chibi), vai/hông/chân theo tỷ lệ nữ thật, có cổ,
+    // khớp khuỷu tay/đầu gối/cổ chân. Khớp tay chân có 2 đoạn (cánh tay
+    // trên + cẳng tay, đùi + cẳng chân) để gập tự nhiên như người thật.
+    // Da tông thật, shading mềm; tóc dài nhiều lớp màu tự nhiên.
     poleDancer: {
       defaultName: 'Múa cột',
-      legLength: 0.92,
-      legRadius: 0.06,
-      hipY: 0.95,
-      shoulderY: 1.42,
-      shoulderDX: 0.24,
-      armLength: 0.52,
-      armRadius: 0.05,
-      chestY: 1.38,
-      bustRadius: 0.13,
-      bustDX: 0.11,
-      bustDZ: 0.09,
-      headRadius: 0.21,
-      headCenterY: 1.64,
-      hairLength: 0.62,
-      skinColor: 0xffd9b3,
-      hairColor: 0x1a0d24,
+      hipY: 0.9, // khớp hông
+      thighLength: 0.46,
+      thighRadius: 0.07,
+      shinLength: 0.4,
+      shinRadius: 0.05,
+      calfRadius: 0.05,
+      footLength: 0.19,
+      footWidth: 0.07,
+      footHeight: 0.05,
+      hipsY: 0.97, // quần short diễn
+      hipsRadiusTop: 0.15,
+      hipsRadiusBottom: 0.165,
+      hipsHeight: 0.18,
+      waistY: 1.13, // eo trần (đồ 2 mảnh)
+      waistRadiusTop: 0.115,
+      waistRadiusBottom: 0.13,
+      waistHeight: 0.18,
+      chestY: 1.33, // áo diễn bandeau
+      chestRadiusTop: 0.14,
+      chestRadiusBottom: 0.125,
+      chestHeight: 0.2,
+      shoulderY: 1.44, // khớp vai
+      shoulderDX: 0.2,
+      upperArmLength: 0.28,
+      upperArmRadius: 0.04,
+      forearmLength: 0.26,
+      forearmRadius: 0.032,
+      handRadius: 0.035,
+      neckY: 1.47,
+      neckRadius: 0.05,
+      neckHeight: 0.1,
+      bustY: 1.32,
+      bustRadius: 0.1,
+      bustDX: 0.085,
+      bustDZ: 0.075,
+      headRadius: 0.115, // đầu ~1/7,5 chiều cao
+      headCenterY: 1.635,
+      hairLength: 0.78, // tóc dài tới eo, xõa lưng
+      skinColor: 0xe8b98d, // da tông thật, ấm
+      skinSpecular: 0x40301e, // shading mềm, không trắng bệch phẳng
+      skinShininess: 12,
+      hairColor: 0x2a1a12, // nâu sẫm tự nhiên
+      hairHighlightColor: 0x5a3d24, // sợi highlight nâu sáng
+      hairSpecular: 0x887788,
+      hairShininess: 35,
       topColor: 0xff2e88,
       topEmissive: 0x550a2e,
       shortsColor: 0x2a0f3d,
       bootColor: 0x11111c,
-      nameSpriteY: 2.14,
-      crownScale: 0.55, // vương miện thu nhỏ theo đầu người thật
+      // Đai lưng neon mảnh ở eo: vòng phát sáng vừa, cùng chất liệu áo.
+      waistbandY: 1.06,
+      waistbandRadius: 0.18,
+      waistbandTube: 0.02,
+      nameSpriteY: 2.02,
+      crownScale: 0.3, // vương miện thu nhỏ theo đầu người thật (0.4*0.3≈0.12)
       orbitRadius: 0.34, // bám sát cột (cột r=0.05, tay với tới cột)
       spinSpeed: 1.1, // rad/s cơ bản quanh cột
       spinBeatBoost: 0.7, // cộng thêm theo nhịp (nhanh/chậm theo beat)
       poseCount: 4, // đổi tư thế theo bar nhạc: ôm cột / nghiêng / co chân / dang tay
+      // Múa mượt + dẻo kiểu người thật (02:43/02:44): tư thế blend mềm
+      // hàm mũ, đầu + tóc lắc trễ mềm theo beat (follow-through).
+      poseBlendSpeed: 6, // /giây — nội suy tư thế đích → hiện tại
+      headSwaySpeed: 3, // /giây — đầu lắc trễ mềm theo beat
+      headSwayAmplitude: 0.05, // radian lắc đầu tối đa
+      hairSwaySpeed: 2, // /giây — tóc lắc chậm hơn đầu (quán tính)
+      hairSwayAmplitude: 0.08, // radian tóc đung đưa tối đa
     },
     // Bộ động tác nhảy thường (user lệnh 22:29, chê đứng 1 chỗ nhàm):
     // đổi theo ranh giới bar nhạc (4 nhịp/bar, BPM trong CONFIG.music),
@@ -438,12 +515,24 @@ export const CONFIG = {
     djCameraExtraDistance: 1.2,
     djCameraExtraHeight: 0.3,
     // Skill "1 hoa hồng": gift tên hoa hồng, tổng kim cương nhỏ.
-    // Camera lia vào đúng dancer, dancer giơ 2 tay lên và nhảy.
+    // Camera lia vào đúng dancer, dancer MÚA QUẠT kiểu Khá Bảnh suốt
+    // thời gian skill (lệnh sếp 02:36): 2 tay đưa ra trước ngực, vẫy
+    // luân phiên lên-xuống như cái quạt, theo nhịp beat, người lắc nhẹ.
+    // Camera lia + thời lượng + hàng đợi giữ nguyên như skill rose cũ
+    // (chỉ đổi động tác — bỏ giơ 2 tay chữ V). armsUpBlendSeconds dùng
+    // chung làm độ blend vào/ra của điệu quạt.
     rose: {
       names: ['hoa hong', 'rose', '🌹'],
       maxTotalDiamonds: 9,
       durationSeconds: 3.2,
       armsUpBlendSeconds: 0.3,
+      // Múa quạt: tay đưa ra trước (rotation.x), vẫy lên-xuống luân
+      // phiên 2 chu kỳ mỗi nhịp, dang ngang vừa phải, người lắc nhẹ.
+      fanForwardX: -1.15,
+      fanWaveAmplitude: 0.38,
+      fanWavesPerBeat: 2,
+      fanSpreadZ: 0.55,
+      fanSwayAngle: 0.06,
       cameraDistance: 3.6,
       cameraHeight: 2.2,
       cameraLerpSpeed: 3.0,

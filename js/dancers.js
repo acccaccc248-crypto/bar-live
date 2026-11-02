@@ -1,7 +1,9 @@
-// dancers.js — dancer chibi meme + avatar + tên, vào/ra sàn,
+// dancers.js — dancer Khá Bảnh + avatar + tên, vào/ra sàn,
 // nhảy theo nhịp, lệnh chat, hiệu ứng gift, skill nhảy theo gift.
-// Mọi ngưỡng đọc từ config.js. Nhân vật: đầu to, tóc bát úp đen,
-// mặt trắng vẽ nét đen bằng canvas texture (không asset ngoài).
+// Mọi ngưỡng đọc từ config.js. Nhân vật: chibi tóc vuốt keo chải ngược,
+// kính đen, dây chuyền vàng, áo đen; mặt trắng vẽ nét mảnh bằng canvas
+// texture (không asset ngoài). Cô múa cột trong lồng dựng riêng, không
+// dùng mẫu này (xem _createPoleDancer).
 
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
@@ -15,6 +17,9 @@ const GEO = {
   arm: null,
   sleeve: null,
   leg: null,
+  chain: null,
+  chainCollar: null,
+  chainPendant: null,
   crownBand: null,
   crownSpike: null,
   crownJewel: null,
@@ -25,13 +30,20 @@ function sharedGeometries() {
   const d = CONFIG.dancers;
   const c = d.chibi;
   GEO.head = new THREE.SphereGeometry(d.headRadius, 24, 18);
-  // Tóc bát úp: nắp cầu phủ nửa trên đầu (theta từ đỉnh xuống ~66°).
+  // Tóc vuốt keo: vẫn nắp cầu như cũ (theta ngắn hơn, nghiêng hẳn về
+  // sau lúc gắn mesh) — gọn gàng, trán thoáng, không lòa xòa trước mặt.
   GEO.hair = new THREE.SphereGeometry(c.hairRadius, 24, 12, 0, Math.PI * 2, 0, c.hairThetaLength);
   GEO.body = new THREE.CylinderGeometry(d.bodyRadius, d.bodyRadius * 1.1, d.bodyHeight, 10);
   GEO.shorts = new THREE.CylinderGeometry(d.bodyRadius, d.bodyRadius * 1.08, 0.3, 10);
   GEO.arm = new THREE.CylinderGeometry(d.armRadius, d.armRadius * 0.9, d.armLength, 8);
   GEO.sleeve = new THREE.CylinderGeometry(d.armRadius * 1.35, d.armRadius * 1.35, 0.14, 8);
   GEO.leg = new THREE.CylinderGeometry(d.legRadius, d.legRadius * 0.9, d.legLength, 8);
+  // Dây chuyền vàng: vòng mảnh quanh cổ + vòng cổ viền áo + mặt dây
+  // nhỏ trước ngực (tinh tế, không thô — polish 02:40).
+  const chain = c.chain;
+  GEO.chain = new THREE.TorusGeometry(chain.torusRadius, chain.torusTube, 8, 24);
+  GEO.chainCollar = new THREE.TorusGeometry(chain.collarRadius, chain.collarTube, 8, 28);
+  GEO.chainPendant = new THREE.OctahedronGeometry(chain.pendantRadius);
   // Vương miện vàng (top donor): vòng hở + chóp nón + hạt ngọc, dùng chung
   // cho chiếc vương miện duy nhất (chuyển qua lại giữa các dancer).
   const crown = d.crown;
@@ -43,10 +55,13 @@ function sharedGeometries() {
   return GEO;
 }
 
-// ---- Mặt meme vẽ bằng canvas texture (dùng chung cho mọi dancer) ----
+// ---- Mặt Khá Bảnh vẽ bằng canvas texture (dùng chung cho mọi dancer) ----
 // Ánh xạ UV của SphereGeometry (flipY mặc định): mặt trước (+z) nằm ở
 // u = 0.25, tức x = 1/4 chiều rộng canvas; đỉnh đầu ở y = 0 của canvas.
 // Mắt/miệng vẽ quanh vùng đó để không bị kéo méo ra sau đầu.
+// MỌI biến thể đều đeo kính đen (lệnh 02:36): kính vẽ 1 lần bằng helper
+// dùng chung cho cân đối; nét vẽ mảnh, sạch, không lem/chồng nét
+// (polish 02:40) — lông mày luôn nằm TRÊN kính, miệng nằm DƯỚI kính.
 function makeFaceTexture(variant) {
   const size = CONFIG.dancers.chibi.faceCanvasSize;
   const canvas = document.createElement('canvas');
@@ -54,11 +69,12 @@ function makeFaceTexture(variant) {
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   const INK = CONFIG.dancers.chibi.faceLineColor;
+  const LW = CONFIG.dancers.chibi.faceLineWidth || 8;
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, size, size);
   ctx.strokeStyle = INK;
   ctx.fillStyle = INK;
-  ctx.lineWidth = 12;
+  ctx.lineWidth = LW;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
@@ -68,15 +84,16 @@ function makeFaceTexture(variant) {
   const browY = size * 0.41;
   const mouthY = size * 0.57;
 
-  // Mắt híp cười: vòm cong ∩.
-  const happyEye = (x, y, r) => {
-    ctx.beginPath();
-    ctx.arc(x, y + r * 0.55, r, Math.PI * 1.15, Math.PI * 1.85);
-    ctx.stroke();
-  };
   const brow = (x, y, r) => {
     ctx.beginPath();
     ctx.arc(x, y + r, r, Math.PI * 1.2, Math.PI * 1.8);
+    ctx.stroke();
+  };
+  // Lông mày thẳng, ngầu (không cong).
+  const flatBrow = (x, y, r) => {
+    ctx.beginPath();
+    ctx.moveTo(x - r, y);
+    ctx.lineTo(x + r, y - 4);
     ctx.stroke();
   };
   // Đường miệng cười: vòm cong ∪.
@@ -86,12 +103,81 @@ function makeFaceTexture(variant) {
     ctx.stroke();
   };
 
-  if (variant === 'cuoi-ha') {
-    // Cười há to: mắt híp + miệng há đen có răng trắng.
-    brow(cx - eyeDX, browY, 30);
-    brow(cx + eyeDX, browY, 30);
-    happyEye(cx - eyeDX, eyeY, 30);
-    happyEye(cx + eyeDX, eyeY, 30);
+  // Kính đen: 2 mắt kính đặc + vệt sáng chéo + cầu nối + càng kính.
+  // Hình học cố định cho mọi biến thể nên kính luôn cân đối, sắc nét.
+  const drawShades = () => {
+    ctx.save();
+    ctx.fillStyle = INK;
+    for (const sx of [-1, 1]) {
+      const x0 = cx + sx * eyeDX - 38;
+      ctx.fillRect(x0, eyeY - 24, 76, 48);
+      // Vệt sáng chéo trên mắt kính (1 vệt mỗi bên, không chồng nét).
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(x0 + 12, eyeY + 20);
+      ctx.lineTo(x0 + 26, eyeY + 20);
+      ctx.lineTo(x0 + 14, eyeY - 20);
+      ctx.lineTo(x0 + 2, eyeY - 20);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = INK;
+    }
+    ctx.restore();
+    // Cầu nối + càng kính (nét 10, không chạm lông mày).
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(cx - eyeDX + 38, eyeY - 2);
+    ctx.lineTo(cx + eyeDX - 38, eyeY - 2);
+    ctx.moveTo(cx - eyeDX - 38, eyeY - 6);
+    ctx.lineTo(cx - eyeDX - 62, eyeY - 12);
+    ctx.moveTo(cx + eyeDX + 38, eyeY - 6);
+    ctx.lineTo(cx + eyeDX + 62, eyeY - 12);
+    ctx.stroke();
+    ctx.lineWidth = LW;
+  };
+
+  if (variant === 'kinh-cuoi') {
+    // Kính đen + cười tươi: lông mày cong, miệng cười khép.
+    brow(cx - eyeDX, browY - 22, 30);
+    brow(cx + eyeDX, browY - 22, 30);
+    drawShades();
+    smile(cx, mouthY, 26);
+  } else if (variant === 'kinh-nhe-rang') {
+    // Kính đen + cười nhe răng: miệng hở răng trắng có kẻ răng.
+    brow(cx - eyeDX, browY - 22, 30);
+    brow(cx + eyeDX, browY - 22, 30);
+    drawShades();
+    const grinPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(cx - 56, mouthY - 6);
+      ctx.lineTo(cx + 56, mouthY - 6);
+      ctx.quadraticCurveTo(cx, mouthY + 36, cx - 56, mouthY - 6);
+      ctx.closePath();
+    };
+    grinPath();
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.lineWidth = LW;
+    ctx.stroke();
+    ctx.save();
+    grinPath();
+    ctx.clip();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    for (const dx of [-28, 0, 28]) {
+      ctx.moveTo(cx + dx, mouthY - 6);
+      ctx.lineTo(cx + dx, mouthY + 30);
+    }
+    ctx.moveTo(cx - 56, mouthY + 10);
+    ctx.lineTo(cx + 56, mouthY + 10);
+    ctx.stroke();
+    ctx.restore();
+  } else if (variant === 'kinh-ha') {
+    // Kính đen + cười há to: miệng há đen có răng trắng.
+    brow(cx - eyeDX, browY - 22, 30);
+    brow(cx + eyeDX, browY - 22, 30);
+    drawShades();
     const mouthPath = () => {
       ctx.beginPath();
       ctx.moveTo(cx - 52, mouthY - 8);
@@ -115,157 +201,53 @@ function makeFaceTexture(variant) {
     ctx.lineTo(cx + 15, mouthY + 2);
     ctx.stroke();
     ctx.restore();
-  } else if (variant === 'nhe-rang') {
-    // Cười nhe răng: mắt híp + miệng cười hở răng có kẻ răng.
-    brow(cx - eyeDX, browY - 6, 30);
-    brow(cx + eyeDX, browY - 6, 30);
-    happyEye(cx - eyeDX, eyeY, 30);
-    happyEye(cx + eyeDX, eyeY, 30);
-    const grinPath = () => {
-      ctx.beginPath();
-      ctx.moveTo(cx - 56, mouthY - 6);
-      ctx.lineTo(cx + 56, mouthY - 6);
-      ctx.quadraticCurveTo(cx, mouthY + 36, cx - 56, mouthY - 6);
-      ctx.closePath();
-    };
-    grinPath();
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-    ctx.lineWidth = 10;
-    ctx.stroke();
-    ctx.save();
-    grinPath();
-    ctx.clip();
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    for (const dx of [-28, 0, 28]) {
-      ctx.moveTo(cx + dx, mouthY - 6);
-      ctx.lineTo(cx + dx, mouthY + 30);
-    }
-    ctx.moveTo(cx - 56, mouthY + 10);
-    ctx.lineTo(cx + 56, mouthY + 10);
-    ctx.stroke();
-    ctx.restore();
-  } else if (variant === 'kinh') {
-    // Đeo kính tròn: mắt chấm + miệng cười nhỏ.
-    brow(cx - eyeDX, browY - 4, 30);
-    brow(cx + eyeDX, browY - 4, 30);
-    ctx.lineWidth = 10;
-    for (const sx of [-1, 1]) {
-      ctx.beginPath();
-      ctx.arc(cx + sx * eyeDX, eyeY, 32, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.moveTo(cx - eyeDX + 32, eyeY - 4);
-    ctx.lineTo(cx + eyeDX - 32, eyeY - 4);
-    ctx.moveTo(cx - eyeDX - 32, eyeY - 6);
-    ctx.lineTo(cx - eyeDX - 62, eyeY - 12);
-    ctx.moveTo(cx + eyeDX + 32, eyeY - 6);
-    ctx.lineTo(cx + eyeDX + 62, eyeY - 12);
-    ctx.stroke();
-    for (const sx of [-1, 1]) {
-      ctx.beginPath();
-      ctx.arc(cx + sx * eyeDX, eyeY + 2, 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    smile(cx, mouthY, 26);
-  } else if (variant === 'buon-ngu') {
-    // Buồn ngủ: mí rũ (vòm ∪) + miệng ngáp hình O.
-    const droop = (x, y, r) => {
-      ctx.beginPath();
-      ctx.arc(x, y - r * 0.4, r, Math.PI * 0.15, Math.PI * 0.85);
-      ctx.stroke();
-    };
-    droop(cx - eyeDX, eyeY - 6, 26);
-    droop(cx + eyeDX, eyeY - 6, 26);
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(cx - eyeDX - 26, eyeY - 34);
-    ctx.lineTo(cx - eyeDX + 26, eyeY - 40);
-    ctx.moveTo(cx + eyeDX - 26, eyeY - 40);
-    ctx.lineTo(cx + eyeDX + 26, eyeY - 34);
-    ctx.stroke();
-    ctx.lineWidth = 10;
-    ctx.beginPath();
-    ctx.arc(cx, mouthY + 4, 24, 0, Math.PI * 2);
-    ctx.stroke();
-  } else if (variant === 'ngac-nhien') {
-    // Ngạc nhiên: lông mày nhướng cao, mắt tròn to, miệng O há.
-    brow(cx - eyeDX, browY - 20, 30);
-    brow(cx + eyeDX, browY - 20, 30);
-    for (const sx of [-1, 1]) {
-      ctx.beginPath();
-      ctx.arc(cx + sx * eyeDX, eyeY, 14, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.beginPath();
-    ctx.arc(cx, mouthY + 6, 30, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (variant === 'kinh-ram') {
-    // Kính râm ngầu: 2 mắt kính đen đặc + vệt sáng, miệng cười khẩy.
-    brow(cx - eyeDX, browY - 6, 30);
-    brow(cx + eyeDX, browY - 6, 30);
-    ctx.save();
-    for (const sx of [-1, 1]) {
-      const x0 = cx + sx * eyeDX - 38;
-      ctx.fillRect(x0, eyeY - 24, 76, 48);
-      // Vệt sáng chéo trên mắt kính.
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.moveTo(x0 + 12, eyeY + 20);
-      ctx.lineTo(x0 + 26, eyeY + 20);
-      ctx.lineTo(x0 + 14, eyeY - 20);
-      ctx.lineTo(x0 + 2, eyeY - 20);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = INK;
-    }
-    ctx.restore();
-    // Cầu nối + càng kính.
-    ctx.lineWidth = 10;
-    ctx.beginPath();
-    ctx.moveTo(cx - eyeDX + 38, eyeY - 2);
-    ctx.lineTo(cx + eyeDX - 38, eyeY - 2);
-    ctx.moveTo(cx - eyeDX - 38, eyeY - 6);
-    ctx.lineTo(cx - eyeDX - 62, eyeY - 12);
-    ctx.moveTo(cx + eyeDX + 38, eyeY - 6);
-    ctx.lineTo(cx + eyeDX + 62, eyeY - 12);
-    ctx.stroke();
-    // Miệng cười khẩy lệch.
+  } else if (variant === 'kinh-khay') {
+    // Kính đen + cười khẩy lệch, một lông mày nhướng.
+    brow(cx - eyeDX, browY - 22, 30);
+    brow(cx + eyeDX, browY - 38, 26);
+    drawShades();
     ctx.beginPath();
     ctx.moveTo(cx - 44, mouthY + 2);
     ctx.quadraticCurveTo(cx + 8, mouthY + 24, cx + 44, mouthY - 10);
     ctx.stroke();
-  } else if (variant === 'nguong') {
-    // Ngượng đỏ mặt: mắt híp cười + miệng cười nhỏ + 2 má hồng.
-    brow(cx - eyeDX, browY, 30);
-    brow(cx + eyeDX, browY, 30);
-    happyEye(cx - eyeDX, eyeY, 30);
-    happyEye(cx + eyeDX, eyeY, 30);
-    smile(cx, mouthY, 24);
-    ctx.save();
-    ctx.globalAlpha = 0.55;
-    ctx.fillStyle = '#ff8fa3';
-    for (const sx of [-1, 1]) {
-      ctx.beginPath();
-      ctx.arc(cx + sx * 80, mouthY - 16, 22, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-  } else {
-    // 'tinh-nghich': một lông mày nhướng, một mắt nháy, miệng cười lệch.
-    brow(cx - eyeDX, browY, 30);
-    brow(cx + eyeDX, browY - 16, 26);
-    happyEye(cx - eyeDX, eyeY, 30);
+  } else if (variant === 'kinh-ngau') {
+    // Kính đen + mặt ngầu: lông mày thẳng, miệng ngang.
+    flatBrow(cx - eyeDX, browY - 22, 30);
+    flatBrow(cx + eyeDX, browY - 22, 30);
+    drawShades();
     ctx.beginPath();
-    ctx.arc(cx + eyeDX, eyeY - 8, 24, Math.PI * 0.15, Math.PI * 0.85);
+    ctx.moveTo(cx - 42, mouthY + 4);
+    ctx.lineTo(cx + 42, mouthY + 4);
     ctx.stroke();
+  } else if (variant === 'kinh-nhay') {
+    // Kính đen + nháy mắt: một lông mày nhướng cao, miệng cười lệch.
+    brow(cx - eyeDX, browY - 22, 30);
+    brow(cx + eyeDX, browY - 44, 26);
+    drawShades();
     ctx.beginPath();
     ctx.moveTo(cx - 48, mouthY + 6);
     ctx.quadraticCurveTo(cx + 6, mouthY + 22, cx + 52, mouthY - 14);
     ctx.stroke();
+  } else if (variant === 'kinh-ngac') {
+    // Kính đen + ngạc nhiên: 2 lông mày nhướng cao, miệng há hình O.
+    brow(cx - eyeDX, browY - 40, 30);
+    brow(cx + eyeDX, browY - 40, 30);
+    drawShades();
+    ctx.beginPath();
+    ctx.arc(cx, mouthY + 6, 28, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // 'kinh-leu' (mặc định): kính đen + cười lè lưỡi tinh nghịch.
+    brow(cx - eyeDX, browY - 22, 30);
+    brow(cx + eyeDX, browY - 38, 26);
+    drawShades();
+    // Lưỡi hồng vẽ TRƯỚC, nét cười đè lên mép trên (không chồng nét).
+    ctx.fillStyle = '#ff7d9c';
+    ctx.beginPath();
+    ctx.arc(cx, mouthY + 14, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = INK;
+    smile(cx, mouthY, 26);
   }
   return new THREE.CanvasTexture(canvas);
 }
@@ -283,9 +265,31 @@ function faceMaterials() {
 let hairMatCache = null;
 function hairMaterial() {
   if (!hairMatCache) {
-    hairMatCache = new THREE.MeshLambertMaterial({ color: CONFIG.dancers.chibi.hairColor });
+    // Tóc vuốt keo có độ bóng nhẹ (polish 02:40): MeshPhongMaterial với
+    // specular + shininess vừa phải, vẫn rẻ trên máy yếu (1 material chung).
+    const c = CONFIG.dancers.chibi;
+    hairMatCache = new THREE.MeshPhongMaterial({
+      color: c.hairColor,
+      specular: c.hairSpecular,
+      shininess: c.hairShininess,
+    });
   }
   return hairMatCache;
+}
+
+// Vật liệu vàng dây chuyền/viền cổ: vàng phát sáng VỪA (tinh tế, không
+// thô như vương miện) — dùng chung cho vòng cổ + viền cổ + mặt dây.
+let chainGoldMatCache = null;
+function chainGoldMaterial() {
+  if (!chainGoldMatCache) {
+    const chain = CONFIG.dancers.chibi.chain;
+    chainGoldMatCache = new THREE.MeshLambertMaterial({
+      color: chain.goldColor,
+      emissive: chain.goldEmissive,
+      emissiveIntensity: chain.goldEmissiveIntensity,
+    });
+  }
+  return chainGoldMatCache;
 }
 
 // Vật liệu vương miện dùng chung: vàng kim hơi phát sáng + ngọc đỏ.
@@ -381,9 +385,12 @@ export function matchCommand(text) {
   return null;
 }
 
-// Mặt người múa cột (lệnh 02:21): nữ trưởng thành, nét vẽ mảnh stylized
-// (mắt to, môi cười, má hồng) — KHÔNG dùng mặt meme chibi. Cùng quy ước
-// UV với makeFaceTexture: mặt trước (+z) nằm ở u = 0.25.
+// Mặt người múa cột (lệnh 02:21 + tả thực 02:44): nữ trưởng thành,
+// vẽ tả thực hơn — mắt có tròng đen/lông mi/lông mày nâu mềm, mũi có
+// bóng nhẹ, môi có màu + chuyển sắc, má hồng nhẹ — KHÔNG dùng nét vẽ
+// đen kiểu meme. Cùng quy ước UV với makeFaceTexture: mặt trước (+z)
+// nằm ở u = 0.25. Chỉ dùng lệnh canvas cơ bản (arc/path/fill/stroke)
+// để chạy được cả trong harness Node.
 function makePoleFaceTexture() {
   const size = 256;
   const canvas = document.createElement('canvas');
@@ -396,45 +403,145 @@ function makePoleFaceTexture() {
   const cx = size * 0.25;
   const eyeY = size * 0.46;
   const eyeDX = size * 0.085;
-  const INK = '#2a1a2e';
-  ctx.strokeStyle = INK;
-  ctx.fillStyle = INK;
-  ctx.lineWidth = 5;
+  const BROWN = '#3a2718';
+  const LASH = '#241408';
   ctx.lineCap = 'round';
-  // Lông mày cong mảnh.
-  ctx.beginPath();
-  ctx.arc(cx - eyeDX, eyeY - size * 0.05, size * 0.045, Math.PI * 1.15, Math.PI * 1.85);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(cx + eyeDX, eyeY - size * 0.05, size * 0.045, Math.PI * 1.15, Math.PI * 1.85);
-  ctx.stroke();
-  // Mắt to (vẽ bằng arc tròn cho bền — không dùng ellipse), điểm sáng trắng.
-  const eye = (x) => {
+  ctx.lineJoin = 'round';
+
+  // Lông mày nâu mềm: vòm cong mảnh, đầu nhạt dần (vẽ 2 lượt alpha).
+  const brow = (x) => {
+    ctx.strokeStyle = BROWN;
+    ctx.lineWidth = 5;
     ctx.beginPath();
-    ctx.arc(x, eyeY, size * 0.042, 0, Math.PI * 2);
+    ctx.arc(x, eyeY - size * 0.055 + size * 0.045, size * 0.045, Math.PI * 1.12, Math.PI * 1.88);
+    ctx.stroke();
+  };
+  brow(cx - eyeDX);
+  brow(cx + eyeDX);
+
+  // Mắt hạnh nhân tả thực: lòng trắng, tròng nâu + con ngươi + điểm
+  // sáng, mi trên đậm có đuôi, nếp mí + mi dưới mờ.
+  const eye = (x) => {
+    // Lòng trắng hình hạnh nhân.
+    ctx.fillStyle = '#fdfdf6';
+    ctx.beginPath();
+    ctx.moveTo(x - 13, eyeY);
+    ctx.quadraticCurveTo(x, eyeY - 8, x + 13, eyeY);
+    ctx.quadraticCurveTo(x, eyeY + 7, x - 13, eyeY);
+    ctx.closePath();
+    ctx.fill();
+    // Tròng mắt nâu + con ngươi + điểm sáng.
+    ctx.fillStyle = '#4a2e18';
+    ctx.beginPath();
+    ctx.arc(x, eyeY, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#14100c';
+    ctx.beginPath();
+    ctx.arc(x, eyeY, 3.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(x + size * 0.012, eyeY - size * 0.015, size * 0.011, 0, Math.PI * 2);
+    ctx.arc(x + 2, eyeY - 2.5, 1.8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = INK;
+    // Mi trên đậm, đuôi mắt hất nhẹ.
+    ctx.strokeStyle = LASH;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, eyeY, 13, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 12, eyeY - 3);
+    ctx.lineTo(x + 18, eyeY - 6);
+    ctx.stroke();
+    // Nếp mí trên + mi dưới mờ.
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.strokeStyle = BROWN;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, eyeY - 3, 15, Math.PI * 1.2, Math.PI * 1.8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, eyeY + 1, 12, Math.PI * 0.15, Math.PI * 0.85);
+    ctx.stroke();
+    ctx.restore();
   };
   eye(cx - eyeDX);
   eye(cx + eyeDX);
-  // Má hồng.
-  ctx.fillStyle = 'rgba(255, 110, 150, 0.45)';
+
+  // Mũi: bóng nhẹ 2 bên sống mũi + lỗ mũi mờ + điểm sáng sống mũi.
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.strokeStyle = '#8a5a40';
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.arc(cx - eyeDX * 1.7, eyeY + size * 0.07, size * 0.035, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(cx + eyeDX * 1.7, eyeY + size * 0.07, size * 0.035, 0, Math.PI * 2);
-  ctx.fill();
-  // Môi cười hồng.
-  ctx.strokeStyle = '#c2275a';
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.arc(cx, eyeY + size * 0.1, size * 0.045, Math.PI * 0.15, Math.PI * 0.85);
+  ctx.moveTo(cx - 6, eyeY + 12);
+  ctx.quadraticCurveTo(cx - 4, eyeY + 24, cx - 5, eyeY + 28);
   ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx + 6, eyeY + 12);
+  ctx.quadraticCurveTo(cx + 4, eyeY + 24, cx + 5, eyeY + 28);
+  ctx.stroke();
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle = '#6a4028';
+  ctx.beginPath();
+  ctx.arc(cx - 5, eyeY + 29, 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + 5, eyeY + 29, 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, eyeY + 8);
+  ctx.lineTo(cx, eyeY + 22);
+  ctx.stroke();
+  ctx.restore();
+
+  // Má hồng nhẹ, mềm (2 lớp alpha thấp chồng nhau).
+  ctx.fillStyle = 'rgba(255, 110, 140, 0.16)';
+  ctx.beginPath();
+  ctx.arc(cx - eyeDX * 1.7, eyeY + size * 0.07, size * 0.042, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + eyeDX * 1.7, eyeY + size * 0.07, size * 0.042, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 110, 140, 0.1)';
+  ctx.beginPath();
+  ctx.arc(cx - eyeDX * 1.7, eyeY + size * 0.07, size * 0.058, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + eyeDX * 1.7, eyeY + size * 0.07, size * 0.058, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Môi: hình môi đầy, viền sẫm + chuyển sắc (lớp hồng sáng ở giữa).
+  const lipY = eyeY + size * 0.1;
+  const lipPath = (s) => {
+    ctx.beginPath();
+    ctx.moveTo(cx - 14 * s, lipY);
+    ctx.quadraticCurveTo(cx - 7 * s, lipY - 6 * s, cx, lipY - 3 * s);
+    ctx.quadraticCurveTo(cx + 7 * s, lipY - 6 * s, cx + 14 * s, lipY);
+    ctx.quadraticCurveTo(cx + 7 * s, lipY + 9 * s, cx, lipY + 7 * s);
+    ctx.quadraticCurveTo(cx - 7 * s, lipY + 9 * s, cx - 14 * s, lipY);
+    ctx.closePath();
+  };
+  lipPath(1);
+  ctx.fillStyle = '#c2275a';
+  ctx.fill();
+  ctx.strokeStyle = '#8f1a42';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  lipPath(0.6);
+  ctx.fillStyle = '#ff6d8f';
+  ctx.fill();
+  ctx.restore();
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -613,10 +720,10 @@ export class DancerManager {
     return dancer;
   }
 
-  // ---- Người múa cột trong lồng (lệnh 02:20/02:21/02:22) ----
-  // Nhân vật RIÊNG BIỆT, cố định, không phải viewer: mỹ nữ trưởng thành
-  // với tỷ lệ riêng (chân dài, eo thon, ngực lớn, tóc dài, đồ diễn bar),
-  // dựng mới gọn nhẹ — KHÔNG dùng mẫu chibi đầu to tóc bát úp.
+  // ---- Người múa cột trong lồng (lệnh 02:20/02:21/02:22 + tả thực 02:44) ----
+  // Nhân vật RIÊNG BIỆT, cố định, không phải viewer: nữ trưởng thành
+  // TỶ LỆ NGƯỜI THẬT (đầu ~1/7,5 chiều cao, khớp vai/khuỷu/hông/gối/
+  // cổ chân 2 đoạn, da/tóc/mặt tả thực procedural) — KHÔNG dùng mẫu chibi.
   // Không tính vào maxDancers, không chiếm slot, không DJ/VIP, không bị
   // đuổi sàn; chạy chung vòng update() (mode 'pole'), dùng chung nhịp nhạc.
   // Nhãn tên mặc định "Múa cột", không avatar; khi có top donor thì mang
@@ -633,100 +740,168 @@ export class DancerManager {
       materials.push(mat);
       return mat;
     };
-    const skinMat = track(new THREE.MeshLambertMaterial({ color: pc.skinColor }));
+    // Da shading mềm (Phong, specular thấp) — không trắng bệch phẳng.
+    const skinMat = track(new THREE.MeshPhongMaterial({
+      color: pc.skinColor, specular: pc.skinSpecular, shininess: pc.skinShininess,
+    }));
     const topMat = track(new THREE.MeshLambertMaterial({
       color: pc.topColor, emissive: pc.topEmissive, emissiveIntensity: 0.55,
     }));
     const shortsMat = track(new THREE.MeshLambertMaterial({ color: pc.shortsColor }));
     const bootMat = track(new THREE.MeshLambertMaterial({ color: pc.bootColor }));
-    const hairMat = track(new THREE.MeshLambertMaterial({ color: pc.hairColor }));
+    const hairMat = track(new THREE.MeshPhongMaterial({
+      color: pc.hairColor, specular: pc.hairSpecular, shininess: pc.hairShininess,
+    }));
+    const highlightMat = track(new THREE.MeshLambertMaterial({ color: pc.hairHighlightColor }));
     const faceMat = track(new THREE.MeshLambertMaterial({ map: makePoleFaceTexture() }));
 
-    // Chân dài: pivot ở hông, gót bốt chạm sàn.
-    const legGeo = new THREE.CylinderGeometry(pc.legRadius, pc.legRadius * 0.8, pc.legLength, 8);
-    const legL = new THREE.Group();
-    const legR = new THREE.Group();
-    legL.position.set(-0.1, pc.hipY, 0);
-    legR.position.set(0.1, pc.hipY, 0);
-    const legMeshL = new THREE.Mesh(legGeo, skinMat);
-    const legMeshR = new THREE.Mesh(legGeo, skinMat);
-    legMeshL.position.y = -pc.legLength / 2;
-    legMeshR.position.y = -pc.legLength / 2;
-    legL.add(legMeshL);
-    legR.add(legMeshR);
-    const shoeGeo = new THREE.BoxGeometry(0.09, 0.06, 0.2);
-    const shoeL = new THREE.Mesh(shoeGeo, bootMat);
-    const shoeR = new THREE.Mesh(shoeGeo, bootMat);
-    shoeL.position.set(0, -pc.legLength + 0.03, 0.04);
-    shoeR.position.set(0, -pc.legLength + 0.03, 0.04);
-    legL.add(shoeL);
-    legR.add(shoeR);
-    group.add(legL, legR);
+    // Chân người thật, 2 đoạn có khớp: đùi (pivot hông) → gối → cẳng
+    // chân + bắp chân → cổ chân → bàn chân. Gót chạm sàn.
+    const mkLeg = (side) => {
+      const hip = new THREE.Group();
+      hip.position.set(side * 0.09, pc.hipY, 0);
+      const thighGeo = new THREE.CylinderGeometry(pc.thighRadius, pc.thighRadius * 0.8, pc.thighLength, 10);
+      const thigh = new THREE.Mesh(thighGeo, skinMat);
+      thigh.position.y = -pc.thighLength / 2;
+      hip.add(thigh);
+      const knee = new THREE.Group();
+      knee.position.y = -pc.thighLength;
+      hip.add(knee);
+      const shinGeo = new THREE.CylinderGeometry(pc.shinRadius, pc.shinRadius * 0.75, pc.shinLength, 10);
+      const shin = new THREE.Mesh(shinGeo, skinMat);
+      shin.position.y = -pc.shinLength / 2;
+      knee.add(shin);
+      // Bắp chân: cầu dẹt sau cẳng chân.
+      const calf = new THREE.Mesh(new THREE.SphereGeometry(pc.calfRadius, 10, 8), skinMat);
+      calf.scale.set(0.9, 1.4, 0.9);
+      calf.position.set(0, -0.13, -0.02);
+      knee.add(calf);
+      const ankle = new THREE.Group();
+      ankle.position.y = -pc.shinLength;
+      knee.add(ankle);
+      const foot = new THREE.Mesh(
+        new THREE.BoxGeometry(pc.footWidth, pc.footHeight, pc.footLength), bootMat,
+      );
+      foot.position.set(0, -0.015, 0.05);
+      ankle.add(foot);
+      return { hip, knee, ankle };
+    };
+    const legL = mkLeg(-1);
+    const legR = mkLeg(1);
+    group.add(legL.hip, legR.hip);
 
-    // Hông + quần short tím đậm.
+    // Quần short diễn + eo trần (đồ 2 mảnh) + áo bandeau + đai lưng neon.
     const hips = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.19, 0.2, 0.2, 12), shortsMat,
+      new THREE.CylinderGeometry(pc.hipsRadiusTop, pc.hipsRadiusBottom, pc.hipsHeight, 14),
+      shortsMat,
     );
-    hips.position.y = 1.0;
+    hips.position.y = pc.hipsY;
     group.add(hips);
-    // Thân trên: eo thon (trên 0.15 / dưới 0.17), áo diễn tím hồng neon.
-    const torso = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.15, 0.17, 0.42, 12), topMat,
+    const waist = new THREE.Mesh(
+      new THREE.CylinderGeometry(pc.waistRadiusTop, pc.waistRadiusBottom, pc.waistHeight, 14),
+      skinMat,
     );
-    torso.position.y = 1.24;
-    group.add(torso);
-    // Ngực lớn: 2 cầu áo cùng chất liệu top, hơi hướng về trước.
+    waist.position.y = pc.waistY;
+    group.add(waist);
+    const chest = new THREE.Mesh(
+      new THREE.CylinderGeometry(pc.chestRadiusTop, pc.chestRadiusBottom, pc.chestHeight, 14),
+      topMat,
+    );
+    chest.position.y = pc.chestY;
+    group.add(chest);
+    const waistband = new THREE.Mesh(
+      new THREE.TorusGeometry(pc.waistbandRadius, pc.waistbandTube, 8, 24), topMat,
+    );
+    waistband.rotation.x = Math.PI / 2;
+    waistband.position.y = pc.waistbandY;
+    group.add(waistband);
+    // Ngực: 2 cầu cùng chất liệu áo, hơi hướng về trước.
     const bustGeo = new THREE.SphereGeometry(pc.bustRadius, 14, 10);
     const bustL = new THREE.Mesh(bustGeo, topMat);
     const bustR = new THREE.Mesh(bustGeo, topMat);
-    bustL.position.set(-pc.bustDX, pc.chestY, pc.bustDZ);
-    bustR.position.set(pc.bustDX, pc.chestY, pc.bustDZ);
+    bustL.position.set(-pc.bustDX, pc.bustY, pc.bustDZ);
+    bustR.position.set(pc.bustDX, pc.bustY, pc.bustDZ);
     group.add(bustL, bustR);
+    // Cổ: nối thân với đầu.
+    const neck = new THREE.Mesh(
+      new THREE.CylinderGeometry(pc.neckRadius, pc.neckRadius * 1.1, pc.neckHeight, 10),
+      skinMat,
+    );
+    neck.position.y = pc.neckY;
+    group.add(neck);
 
-    // Tay thon: pivot ở vai.
-    const armGeo = new THREE.CylinderGeometry(pc.armRadius, pc.armRadius * 0.85, pc.armLength, 8);
-    const armL = new THREE.Group();
-    const armR = new THREE.Group();
-    armL.position.set(-pc.shoulderDX, pc.shoulderY, 0);
-    armR.position.set(pc.shoulderDX, pc.shoulderY, 0);
-    const armMeshL = new THREE.Mesh(armGeo, skinMat);
-    const armMeshR = new THREE.Mesh(armGeo, skinMat);
-    armMeshL.position.y = -pc.armLength / 2;
-    armMeshR.position.y = -pc.armLength / 2;
-    armL.add(armMeshL);
-    armR.add(armMeshR);
-    group.add(armL, armR);
+    // Tay người thật, 2 đoạn có khớp: cánh tay trên (pivot vai) → khuỷu
+    // → cẳng tay → bàn tay.
+    const mkArm = (side) => {
+      const shoulder = new THREE.Group();
+      shoulder.position.set(side * pc.shoulderDX, pc.shoulderY, 0);
+      const upperGeo = new THREE.CylinderGeometry(pc.upperArmRadius, pc.upperArmRadius * 0.88, pc.upperArmLength, 8);
+      const upper = new THREE.Mesh(upperGeo, skinMat);
+      upper.position.y = -pc.upperArmLength / 2;
+      shoulder.add(upper);
+      const elbow = new THREE.Group();
+      elbow.position.y = -pc.upperArmLength;
+      shoulder.add(elbow);
+      const foreGeo = new THREE.CylinderGeometry(pc.forearmRadius, pc.forearmRadius * 0.85, pc.forearmLength, 8);
+      const fore = new THREE.Mesh(foreGeo, skinMat);
+      fore.position.y = -pc.forearmLength / 2;
+      elbow.add(fore);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(pc.handRadius, 10, 8), skinMat);
+      hand.scale.set(0.8, 1.4, 0.9);
+      hand.position.y = -pc.forearmLength - 0.02;
+      elbow.add(hand);
+      return { shoulder, elbow };
+    };
+    const armL = mkArm(-1);
+    const armR = mkArm(1);
+    group.add(armL.shoulder, armR.shoulder);
 
-    // Đầu + tóc dài (headGroup để gắn vương miện như chibi).
+    // Đầu tỷ lệ người thật + tóc dài nhiều lớp (headGroup để gắn vương
+    // miện như cũ; tóc sau lưng nằm trong nhóm riêng có pivot ở đỉnh đầu
+    // để đung đưa mềm theo người).
     const headGroup = new THREE.Group();
     headGroup.position.set(0, pc.headCenterY, 0);
     const headMesh = new THREE.Mesh(
       new THREE.SphereGeometry(pc.headRadius, 24, 18), faceMat,
     );
     headGroup.add(headMesh);
-    // Mũ tóc phủ đỉnh + sau đầu, hơi nghiêng về sau.
+    // Mũ tóc ôm dáng đầu: phủ đỉnh + gáy, nghiêng về sau, chân tóc cao.
     const hairCap = new THREE.Mesh(
-      new THREE.SphereGeometry(pc.headRadius + 0.025, 24, 16, 0, Math.PI * 2, 0, 1.5),
+      new THREE.SphereGeometry(pc.headRadius + 0.01, 24, 16, 0, Math.PI * 2, 0, 1.9),
       hairMat,
     );
-    hairCap.position.set(0, 0.01, -0.01);
-    hairCap.rotation.x = -0.35;
+    hairCap.position.set(0, 0.01, -0.015);
+    hairCap.rotation.x = -0.55;
     headGroup.add(hairCap);
-    // Tóc dài sau lưng tới giữa lưng + 2 lọn tóc mai ôm mặt.
+    // Tóc xõa lưng: tấm tóc thuôn, dẹt, tới eo + 3 sợi highlight nâu
+    // sáng trên mặt tấm tóc — cùng đung đưa trong nhóm hairBack.
+    const hairBack = new THREE.Group();
+    hairBack.position.set(0, 0.07, -0.055);
     const backHair = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3, pc.hairLength, 0.09), hairMat,
+      new THREE.CylinderGeometry(0.105, 0.08, pc.hairLength, 10), hairMat,
     );
-    backHair.position.set(0, -pc.hairLength / 2 + 0.12, -0.16);
-    headGroup.add(backHair);
-    const strandGeo = new THREE.CylinderGeometry(0.045, 0.035, 0.34, 6);
+    backHair.scale.z = 0.5;
+    backHair.position.set(0, -pc.hairLength / 2 + 0.03, -0.02);
+    hairBack.add(backHair);
+    const hlGeo = new THREE.CylinderGeometry(0.012, 0.01, pc.hairLength * 0.75, 5);
+    for (const hx of [-0.045, 0, 0.045]) {
+      const hl = new THREE.Mesh(hlGeo, highlightMat);
+      hl.position.set(hx, -pc.hairLength * 0.36, 0.028);
+      hairBack.add(hl);
+    }
+    headGroup.add(hairBack);
+    // 2 lọn tóc mai ôm mặt, thon dần, hơi nghiêng ra ngoài.
+    const strandGeo = new THREE.CylinderGeometry(0.03, 0.022, 0.42, 6);
     const strandL = new THREE.Mesh(strandGeo, hairMat);
     const strandR = new THREE.Mesh(strandGeo, hairMat);
-    strandL.position.set(-0.18, -0.12, 0.03);
-    strandR.position.set(0.18, -0.12, 0.03);
+    strandL.position.set(-0.105, -0.14, 0.02);
+    strandR.position.set(0.105, -0.14, 0.02);
+    strandL.rotation.z = 0.06;
+    strandR.rotation.z = -0.06;
     headGroup.add(strandL, strandR);
     group.add(headGroup);
 
-    // Nhãn tên (không avatar) — vị trí như chibi nhưng thấp hơn theo đầu thật.
+    // Nhãn tên (không avatar) — thấp hơn theo đầu người thật.
     const nameSprite = makeNameSprite(pc.defaultName);
     nameSprite.position.set(0, pc.nameSpriteY, 0.02);
     group.add(nameSprite);
@@ -736,10 +911,17 @@ export class DancerManager {
       user: { name: pc.defaultName, uniqueId: '__pole__', avatar: '' },
       group,
       headGroup,
-      armL,
-      armR,
-      legL,
-      legR,
+      hairBack,
+      armL: armL.shoulder,
+      armR: armR.shoulder,
+      elbL: armL.elbow,
+      elbR: armR.elbow,
+      legL: legL.hip,
+      legR: legR.hip,
+      kneeL: legL.knee,
+      kneeR: legR.knee,
+      ankL: legL.ankle,
+      ankR: legR.ankle,
       nameSprite,
       avatarSprite: null,
       avatarTexture: null,
@@ -774,15 +956,15 @@ export class DancerManager {
       moveStartBar: 0,
       moveBars: 4,
       moveDir: 1,
-      // Trạng thái múa cột riêng.
+      // Trạng thái múa cột riêng (tả thực 02:44): poleCur = tư thế khớp
+      // hiện tại đã nội suy mềm (vai/khuỷu/hông/gối/cổ chân + nghiêng).
       poleAngle: 0,
       polePoseBar: -1,
       polePoseIndex: 0,
+      poleCur: null,
       poleLeanZ: 0,
-      poleArmL: { x: 0, z: 0 },
-      poleArmR: { x: 0, z: 0 },
-      poleLegL: 0,
-      poleLegR: 0,
+      poleHeadSway: 0,
+      poleHairSway: 0,
       wanderHeading: 0,
       wanderTarget: null,
       wanderRetargetAt: 0,
@@ -820,8 +1002,8 @@ export class DancerManager {
       return mat;
     };
 
-    // Áo xám / tay chân trắng / quần short tối — theo ảnh tham chiếu.
-    const shirtMat = track(new THREE.MeshLambertMaterial({ color: this._pick(c.shirtGrays) }));
+    // Áo đen sang / tay chân trắng / quần short tối — kiểu Khá Bảnh.
+    const shirtMat = track(new THREE.MeshLambertMaterial({ color: this._pick(c.shirtColors) }));
     const skinMat = track(new THREE.MeshLambertMaterial({ color: c.skinWhite }));
     const shortsMat = track(new THREE.MeshLambertMaterial({ color: c.shortsColor }));
 
@@ -844,7 +1026,7 @@ export class DancerManager {
     body.position.y = 0.88;
 
     // Tay nhỏ, pivot riêng ở vai (skill giơ 2 tay xoay quanh pivot này);
-    // tay áo xám ngắn gắn cùng pivot.
+    // tay áo đen ngắn gắn cùng pivot.
     const armL = new THREE.Group();
     const armR = new THREE.Group();
     armL.position.set(-0.4, 1.06, 0);
@@ -860,15 +1042,27 @@ export class DancerManager {
     armL.add(armMeshL, sleeveL);
     armR.add(armMeshR, sleeveR);
 
-    // Đầu to + tóc bát úp + mặt meme (vẽ sẵn, dùng chung).
+    // Đầu + tóc vuốt keo chải ngược + mặt kính đen (vẽ sẵn, dùng chung).
     const headGroup = new THREE.Group();
     headGroup.position.y = c.headCenterY;
     const faceIndex = Math.floor(Math.random() * faceMaterials().length);
     const headMesh = new THREE.Mesh(this.geo.head, faceMaterials()[faceIndex]);
     const hair = new THREE.Mesh(this.geo.hair, hairMaterial());
-    hair.position.set(0, 0.02, 0.02);
+    hair.position.set(...c.hairOffset);
     hair.rotation.x = c.hairTiltX;
     headGroup.add(headMesh, hair);
+
+    // Dây chuyền vàng + viền cổ vàng (dùng chung geometry/material,
+    // KHÔNG track vào materials — material dùng chung, không dispose riêng).
+    const chainCfg = c.chain;
+    const chainRing = new THREE.Mesh(this.geo.chain, chainGoldMaterial());
+    chainRing.position.set(0, chainCfg.torusY, 0);
+    chainRing.rotation.x = Math.PI / 2 + chainCfg.torusTilt;
+    const collarRing = new THREE.Mesh(this.geo.chainCollar, chainGoldMaterial());
+    collarRing.position.set(0, chainCfg.collarY, 0);
+    collarRing.rotation.x = Math.PI / 2;
+    const pendant = new THREE.Mesh(this.geo.chainPendant, chainGoldMaterial());
+    pendant.position.set(0, chainCfg.pendantY, chainCfg.pendantZ);
 
     // Avatar + tên nổi TRÊN đầu (Sprite luôn quay về camera), không che mặt.
     const avatarTexture = makeAvatarTexture(user.avatar, user.name);
@@ -879,7 +1073,8 @@ export class DancerManager {
 
     const nameSprite = makeNameSprite(user.name);
     nameSprite.position.y = c.nameSpriteY;
-    group.add(legL, legR, shorts, body, armL, armR, headGroup, avatarSprite, nameSprite);
+    group.add(legL, legR, shorts, body, armL, armR, headGroup, avatarSprite, nameSprite,
+      chainRing, collarRing, pendant);
 
     const dancer = {
       user,
@@ -962,12 +1157,12 @@ export class DancerManager {
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // "Đổi nv": đổi biểu cảm mặt meme + sắc độ áo xám (tóc bát úp giữ nguyên).
+  // "Đổi nv": đổi biểu cảm mặt kính đen + sắc độ áo đen (tóc vuốt keo giữ nguyên).
   randomize(dancer) {
     const mats = faceMaterials();
     dancer.faceIndex = Math.floor(Math.random() * mats.length);
     dancer.headMesh.material = mats[dancer.faceIndex];
-    dancer.shirtMat.color.setHex(this._pick(CONFIG.dancers.chibi.shirtGrays));
+    dancer.shirtMat.color.setHex(this._pick(CONFIG.dancers.chibi.shirtColors));
   }
 
   boost(dancer, amount) {
@@ -1734,10 +1929,13 @@ export class DancerManager {
         group.position.y = CONFIG.stage.vipPlatformSize[1] + Math.max(0, swing) * amp;
         group.rotation.y = 0;
       } else if (dancer.mode === 'pole') {
-        // Múa cột trong lồng (lệnh 02:20/02:21): bám cột, xoay quanh cột,
-        // quay mặt vào cột, đổi tư thế theo bar nhạc, nhanh/chậm theo beat.
+        // Múa cột tả thực (lệnh 02:44): bám cột, xoay quanh cột, quay
+        // mặt vào cột, đổi tư thế theo bar nhạc. Tư thế đích (khớp vai/
+        // khuỷu/hông/gối/cổ chân + nghiêng người) được NỘI SUY MỀM về tư
+        // thế hiện tại (easing hàm mũ) — không cắt cứng khi đổi bar;
+        // đầu + tóc lắc trễ mềm theo beat (follow-through, quán tính).
         // Skill (nếu có) chạy tại chỗ bên cột: khối santo bên dưới ghi đè
-        // y/rotation.x khi cần; khối armsUp bên dưới ghi đè tay khi cần.
+        // y/rotation.x khi cần; khối armsUp/fan bên dưới ghi đè tay khi cần.
         const pc = CONFIG.dancers.poleDancer;
         const cage = CONFIG.scene.cage;
         // Đổi tư thế theo bar nhạc trước (tư thế xoay nhanh có hệ số riêng).
@@ -1757,35 +1955,61 @@ export class DancerManager {
         group.position.set(px, Math.max(0, swing) * amp * 0.5, pz);
         // Quay mặt vào cột: hướng nhìn = từ vị trí về tâm lồng.
         group.rotation.y = -dancer.poleAngle - Math.PI / 2;
-        // Tư thế theo bar: 0 ôm cột 2 tay trên cao, 1 nghiêng người 1 tay
-        // ôm cột, 2 co 1 chân + 1 tay chống hông, 3 dang 2 tay xoay nhanh.
+        // Tư thế đích theo bar: 0 ôm cột 2 tay trên cao, 1 nghiêng người
+        // 1 tay ôm cột, 2 co 1 chân + 1 tay chống hông, 3 dang 2 tay
+        // xoay nhanh. Gối gập + mũi chân duỗi theo kiểu người thật.
         const hold = Math.sin(beatPhase * Math.PI * 2);
+        // Gợn mềm theo nhịp: 2 tay uốn ngược pha, biên độ nhỏ.
+        const flow = Math.sin(beatPhase * Math.PI * 2 + dancer.poleAngle * 0.5) * 0.05;
         const pose = dancer.polePoseIndex;
+        const target = {
+          shLx: 0, shLz: 0, shRx: 0, shRz: 0, elL: 0, elR: 0,
+          hipL: 0, hipR: 0, kneeL: 0, kneeR: 0, ankL: 0, ankR: 0, lean: 0,
+        };
         if (pose === 0) {
-          dancer.poleArmL = { x: -2.7 + hold * 0.06, z: 0.5 };
-          dancer.poleArmR = { x: -2.7 - hold * 0.06, z: -0.5 };
-          dancer.poleLegL = 0;
-          dancer.poleLegR = 0;
-          dancer.poleLeanZ = hold * 0.04;
+          Object.assign(target, {
+            shLx: -2.7 + hold * 0.06, shLz: 0.5, shRx: -2.7 - hold * 0.06, shRz: -0.5,
+            elL: -0.25, elR: -0.25, kneeL: 0.05, kneeR: 0.05, ankL: 0.05, ankR: 0.05,
+            lean: hold * 0.04,
+          });
         } else if (pose === 1) {
-          dancer.poleArmL = { x: -2.8, z: 0.4 };
-          dancer.poleArmR = { x: -0.4 + hold * 0.1, z: -1.2 };
-          dancer.poleLegL = 0;
-          dancer.poleLegR = -0.3;
-          dancer.poleLeanZ = 0.28 + hold * 0.03;
+          Object.assign(target, {
+            shLx: -2.8, shLz: 0.4, shRx: -0.4 + hold * 0.1, shRz: -1.2,
+            elL: -0.3, elR: -0.9, hipR: -0.3, kneeL: 0.05, kneeR: 0.35,
+            ankL: 0.05, ankR: 0.25, lean: 0.28 + hold * 0.03,
+          });
         } else if (pose === 2) {
-          dancer.poleArmL = { x: -2.6, z: 0.6 };
-          dancer.poleArmR = { x: -0.9, z: -0.9 };
-          dancer.poleLegL = -1.1;
-          dancer.poleLegR = 0.1;
-          dancer.poleLeanZ = 0.12 + hold * 0.03;
+          Object.assign(target, {
+            shLx: -2.6, shLz: 0.6, shRx: -0.9, shRz: -0.9,
+            elL: -0.3, elR: -0.7, hipL: -1.05, hipR: 0.1, kneeL: 1.05, kneeR: 0.1,
+            ankL: 0.5, ankR: 0.05, lean: 0.12 + hold * 0.03,
+          });
         } else {
-          dancer.poleArmL = { x: -0.6 + hold * 0.1, z: 1.9 };
-          dancer.poleArmR = { x: -0.6 - hold * 0.1, z: -1.9 };
-          dancer.poleLegL = 0.15;
-          dancer.poleLegR = -0.15;
-          dancer.poleLeanZ = hold * 0.05;
+          Object.assign(target, {
+            shLx: -0.6 + hold * 0.1, shLz: 1.9, shRx: -0.6 - hold * 0.1, shRz: -1.9,
+            elL: -0.15, elR: -0.15, hipL: 0.15, hipR: -0.15, kneeL: 0.1, kneeR: 0.1,
+            ankL: 0.05, ankR: 0.05, lean: hold * 0.05,
+          });
         }
+        target.shLx += flow;
+        target.shRx -= flow;
+        // Nội suy mềm về đích (frame đầu lấy luôn đích để khỏi giật).
+        if (!dancer.poleCur) dancer.poleCur = { ...target };
+        const cur = dancer.poleCur;
+        const k = 1 - Math.exp(-dt * (pc.poseBlendSpeed || 6));
+        for (const key of Object.keys(target)) cur[key] += (target[key] - cur[key]) * k;
+        dancer.poleLeanZ = cur.lean;
+        // Đầu + tóc lắc trễ mềm theo BAR nhạc (chậm hơn nhịp → nhìn rõ
+        // mà vẫn mềm; tóc chậm hơn đầu = quán tính, follow-through).
+        const swayTarget = Math.sin(barFloat * Math.PI * 2) * (pc.headSwayAmplitude || 0.05);
+        const kh = 1 - Math.exp(-dt * (pc.headSwaySpeed || 3));
+        dancer.poleHeadSway += (swayTarget - dancer.poleHeadSway) * kh;
+        const hairTarget = Math.sin(barFloat * Math.PI * 2 - 0.6) * (pc.hairSwayAmplitude || 0.08);
+        const khair = 1 - Math.exp(-dt * (pc.hairSwaySpeed || 2));
+        dancer.poleHairSway += (hairTarget - dancer.poleHairSway) * khair;
+        dancer.headGroup.rotation.z = dancer.poleHeadSway;
+        dancer.headGroup.rotation.x = dancer.poleHeadSway * 0.5;
+        if (dancer.hairBack) dancer.hairBack.rotation.x = dancer.poleHairSway;
       } else {
         // Nhảy thường + đi dạo tự do (CONFIG.dancers.wander): vừa đi
         // vừa nhảy, đổi hướng mềm, giữ khoảng cách (tách nhau ở cuối
@@ -1837,12 +2061,20 @@ export class DancerManager {
         group.rotation.x = 0;
       }
 
-      // Skill giơ 2 tay lên (cả rose và grand): blend mượt vào/ra ở đầu
-      // và cuối skill, tay mở thành hình chữ V hướng lên trên.
+      // Múa quạt (skill hoa hồng, lệnh 02:36): blend mượt vào/ra như skill
+      // giơ tay cũ; tay quạt theo nhịp, tính ở khối tay bên dưới.
+      // Skill gift lớn (grand) vẫn giơ 2 tay chữ V như cũ.
       // Động tác bật nhảy cũng giơ tay theo độ cao (chỉ ở nhánh nhảy thường).
+      let fanAmount = 0;
+      if (dancer.skillKind === 'rose') {
+        const blend = CONFIG.skills.rose.armsUpBlendSeconds || 0.3;
+        const elapsedSkill = time - dancer.skillStartedAt;
+        const remainSkill = dancer.skillUntil - time;
+        fanAmount = Math.min(1, Math.max(0, elapsedSkill / blend), Math.max(0, remainSkill / blend));
+      }
       let armsUp = 0;
-      if (dancer.skillKind) {
-        const skillCfg = dancer.skillKind === 'grand' ? CONFIG.skills.grand : CONFIG.skills.rose;
+      if (dancer.skillKind === 'grand') {
+        const skillCfg = CONFIG.skills.grand;
         const blend = skillCfg.armsUpBlendSeconds || 0.3;
         const elapsedSkill = time - dancer.skillStartedAt;
         const remainSkill = dancer.skillUntil - time;
@@ -1865,17 +2097,37 @@ export class DancerManager {
       const sweep = dancer.mode === 'dance'
         ? movePose.armSweep * Math.sin(beatPhase * Math.PI * 2)
         : 0;
-      if (armsUp > 0) {
+      if (fanAmount > 0) {
+        // Múa quạt: 2 tay đưa ra trước ngực, vẫy luân phiên lên-xuống
+        // như cái quạt — 2 chu kỳ mỗi nhịp, 2 tay ngược pha, cổ tay mềm
+        // (xoay z nhẹ cùng pha vẫy). Blend từ tư thế thường sang quạt.
+        const fanCfg = CONFIG.skills.rose;
+        const wavePhase = beatPhase * Math.PI * 2 * (fanCfg.fanWavesPerBeat || 2)
+          + dancer.phaseOffset;
+        const wL = Math.sin(wavePhase);
+        const wR = Math.sin(wavePhase + Math.PI);
+        const fanX = fanCfg.fanForwardX || -1.15;
+        const fanAmp = fanCfg.fanWaveAmplitude || 0.38;
+        const fanSpread = fanCfg.fanSpreadZ || 0.55;
+        dancer.armL.rotation.x = THREE.MathUtils.lerp(-armSwing * 0.4 - sweep, fanX + wL * fanAmp, fanAmount);
+        dancer.armR.rotation.x = THREE.MathUtils.lerp(armSwing * 0.4 + sweep, fanX + wR * fanAmp, fanAmount);
+        dancer.armL.rotation.z = THREE.MathUtils.lerp(0.25 + armSwing, fanSpread + wL * 0.12, fanAmount);
+        dancer.armR.rotation.z = THREE.MathUtils.lerp(-0.25 - armSwing, -fanSpread - wR * 0.12, fanAmount);
+      } else if (armsUp > 0) {
         dancer.armL.rotation.z = THREE.MathUtils.lerp(0.25 + armSwing, -2.6, armsUp);
         dancer.armR.rotation.z = THREE.MathUtils.lerp(-0.25 - armSwing, 2.6, armsUp);
         dancer.armL.rotation.x = THREE.MathUtils.lerp(-armSwing * 0.4, -0.3, armsUp);
         dancer.armR.rotation.x = THREE.MathUtils.lerp(armSwing * 0.4, -0.3, armsUp);
       } else if (dancer.mode === 'pole') {
-        // Múa cột: tay/chân theo tư thế của bar hiện tại (nhánh pole ở
-        // trên đã tính sẵn; tay vẫn giơ lên được khi chạy skill/lệnh,
-        // nhánh armsUp trên lo).
-        dancer.armL.rotation.set(dancer.poleArmL.x, 0, dancer.poleArmL.z);
-        dancer.armR.rotation.set(dancer.poleArmR.x, 0, dancer.poleArmR.z);
+        // Múa cột: vai + khuỷu theo tư thế khớp đã nội suy mềm (nhánh
+        // pole ở trên); skill/lệnh giơ tay đè lên ở nhánh fan/armsUp trên.
+        const cur = dancer.poleCur;
+        if (cur) {
+          dancer.armL.rotation.set(cur.shLx, 0, cur.shLz);
+          dancer.armR.rotation.set(cur.shRx, 0, cur.shRz);
+          dancer.elbL.rotation.x = cur.elL;
+          dancer.elbR.rotation.x = cur.elR;
+        }
       } else {
         dancer.armL.rotation.z = 0.25 + armSwing;
         dancer.armR.rotation.z = -0.25 - armSwing;
@@ -1883,18 +2135,27 @@ export class DancerManager {
         dancer.armR.rotation.x = armSwing * 0.4 + sweep;
       }
       if (dancer.mode === 'pole') {
-        dancer.legL.rotation.x = dancer.poleLegL;
-        dancer.legR.rotation.x = dancer.poleLegR;
+        // Múa cột: hông + gối + cổ chân theo tư thế khớp đã nội suy mềm.
+        const cur = dancer.poleCur;
+        if (cur) {
+          dancer.legL.rotation.x = cur.hipL;
+          dancer.legR.rotation.x = cur.hipR;
+          dancer.kneeL.rotation.x = cur.kneeL;
+          dancer.kneeR.rotation.x = cur.kneeR;
+          dancer.ankL.rotation.x = cur.ankL;
+          dancer.ankR.rotation.x = cur.ankR;
+        }
       } else {
         dancer.legL.rotation.x = -swing * 0.45 * (0.35 + dancer.energy);
         dancer.legR.rotation.x = swing * 0.45 * (0.35 + dancer.energy);
       }
       // Cả người hơi nghiêng theo nhịp (trừ lúc santo); động tác lắc hông
       // cộng thêm nghiêng + dịch ngang (nhánh nhảy thường); múa cột cộng
-      // thêm nghiêng theo tư thế.
+      // thêm nghiêng theo tư thế; múa quạt lắc nhẹ người theo nhịp.
       group.rotation.z = swing * 0.05 * (0.5 + dancer.energy)
         + (dancer.mode === 'dance' ? movePose.swayZ : 0)
-        + (dancer.mode === 'pole' ? (dancer.poleLeanZ || 0) : 0);
+        + (dancer.mode === 'pole' ? (dancer.poleLeanZ || 0) : 0)
+        + fanAmount * Math.sin(beatPhase * Math.PI * 2) * (CONFIG.skills.rose.fanSwayAngle || 0.06);
       if (dancer.mode === 'orbit') group.rotation.z = 0;
       if (somersaulting) group.rotation.z = 0;
     }

@@ -24,8 +24,9 @@ export const CONFIG = {
   },
 
   // Camera cho khung NGANG 16:9. Nhìn từ trước, hơi cao, bao trọn sàn rộng.
+  // FOV 55 theo lệnh sếp 02:17 (từ 48: góc nhìn rộng thêm xíu).
   camera: {
-    fov: 48,
+    fov: 55,
     near: 0.1,
     far: 60,
     basePosition: [0, 4.4, 10.2],

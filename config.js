@@ -292,21 +292,27 @@ export const CONFIG = {
       radiusZ: 1.85,
     },
 
-    // Người múa cột trong lồng (lệnh 02:20/02:21/02:22): MỸ NỮ trưởng
-    // thành — KHÔNG dùng mẫu chibi đầu to tóc bát úp. Dựng riêng body nữ
-    // trưởng thành, cùng phong cách 3D stylized của cảnh, tông neon tím/hồng.
-    // Tỷ lệ (m, scale 1.0 — cao ~1.83m, cao hơn chibi ~1.63m):
-    // chân dài 0.92m (hông cao 0.95m), eo thon (thân trên 0.15m / dưới
-    // 0.17m), ngực lớn (2 cầu r=0.13), tóc dài tới giữa lưng (0.62m),
-    // đồ diễn bar: áo tím hồng neon + quần short tím đậm + bốt tối.
-    // Người múa cột trong lồng (lệnh 02:20/02:21/02:22 + tả thực 02:44):
-    // NỮ TRƯỞNG THÀNH TỶ LỆ NGƯỜI THẬT — cao ~1,75m, đầu ~1/7,5 chiều
-    // cao (bỏ đầu to chibi), vai/hông/chân theo tỷ lệ nữ thật, có cổ,
-    // khớp khuỷu tay/đầu gối/cổ chân. Khớp tay chân có 2 đoạn (cánh tay
-    // trên + cẳng tay, đùi + cẳng chân) để gập tự nhiên như người thật.
-    // Da tông thật, shading mềm; tóc dài nhiều lớp màu tự nhiên.
+    // Người múa cột trong lồng (lệnh 02:20/02:21/02:22 + tả thực 02:44
+    // + mẫu người thật 03/11): mẫu nữ GLB rigged (MakeHuman CC0, xem
+    // models/CREDITS.md) + clip mocap — nhảy thường từ video @poppyyy0101,
+    // skill múa cột khi donate từ video @chaniee102. Khi GLB/clip không
+    // tải được thì tự rơi về body procedural cũ (thông số dưới đây).
     poleDancer: {
       defaultName: 'Múa cột',
+      // Model người thật + clip (đường dẫn tương đối từ index.html).
+      model: {
+        glb: 'models/pole-dancer.glb',
+        idleClip: 'models/pole-idle.clip.json', // nhảy thường, loop 12s
+        skillClip: 'models/pole-skill.clip.json', // skill donate, 5s one-shot
+        crossfadeSeconds: 0.3, // blend vào/ra clip skill
+      },
+      // Xoay 1 vòng quanh cột (lệnh 03:22): mỗi 8 bar, xoay đúng 1 vòng
+      // trong 2 bar, quay mặt vào cột lúc xoay, nhảy thường hướng ra
+      // ngoài (về phía camera). Skill đang chạy thì không bắt đầu vòng mới.
+      spinEveryBars: 8,
+      spinDurationBars: 2,
+      spinFacingRate: 6, // /giây — blend hướng mặt vào/ra cột
+      idleAngle: Math.PI / 2, // đứng chính diện lồng (phía camera)
       hipY: 0.9, // khớp hông
       thighLength: 0.46,
       thighRadius: 0.07,
@@ -360,7 +366,7 @@ export const CONFIG = {
       waistbandY: 1.06,
       waistbandRadius: 0.18,
       waistbandTube: 0.02,
-      nameSpriteY: 2.02,
+      nameSpriteY: 1.9, // tên trên đầu model GLB (đỉnh đầu 1,63m)
       crownScale: 0.3, // vương miện thu nhỏ theo đầu người thật (0.4*0.3≈0.12)
       orbitRadius: 0.34, // bám sát cột (cột r=0.05, tay với tới cột)
       spinSpeed: 1.1, // rad/s cơ bản quanh cột

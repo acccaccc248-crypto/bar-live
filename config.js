@@ -476,6 +476,12 @@ export const CONFIG = {
       { src: 'audio/lets-move-836.mp3', title: "Let's Move", artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 120.0, bars: 32, gain: 1, hot: true },
       { src: 'audio/hard-techno-197.mp3', title: 'Hard Techno', artist: 'Arulo', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 120.0, bars: 32, gain: 1, hot: true },
       { src: 'audio/trance-party-166.mp3', title: 'Trance Party', artist: 'Alejandro Magaña', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 136.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/feast-from-the-east-829.mp3', title: 'Feast From The East', artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 123.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/slow-trance-morning-123.mp3', title: 'Slow Trance Morning', artist: 'Alejandro Magaña', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 124.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/deep-techno-ambience-134.mp3', title: 'Deep Techno Ambience', artist: 'Alejandro Magaña', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 124.9, bars: 32, gain: 1, hot: true },
+      { src: 'audio/talent-in-the-air-473.mp3', title: 'Talent in the Air', artist: 'Diego Nava', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 121.9, bars: 32, gain: 1, hot: true },
+      { src: 'audio/getting-older-469.mp3', title: 'Getting Older', artist: 'Diego Nava', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 122.9, bars: 32, gain: 1, hot: true },
+      { src: 'audio/razor-edge-1280.mp3', title: 'Razor Edge', artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 122.0, bars: 32, gain: 1, hot: true },
     ],
     // Hàng đợi đẩy liên tục: trộn thứ tự, track hot lên trước, crossfade
     // đúng ranh giới bar khi chuyển track, hết vòng thì trộn lại.

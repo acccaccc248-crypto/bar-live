@@ -2,9 +2,9 @@
 
 Sở hữu: agent nhạc DJ. Mọi ngưỡng nhạc nằm trong `CONFIG.music` (`../config.js`);
 `js/audio.js` không hardcode BPM, pattern hay âm lượng. Cập nhật lần cuối:
-03/11/2026 — đợt 5: thêm 2 track mới (House Vibez, Night Terrors), xoay
-loại 2 track cũ ít năng lượng nhất (Positive Energy, India) để giữ
-tổng < 10 MB, giữ nguyên toàn bộ track hot còn lại + Dance Away.
+03/11/2026 — đợt 6: sếp duyệt nâng trần từ 10 MB lên 15 MB, thêm 6 track
+mới (Feast From The East + 5 track quét mới), giữ nguyên toàn bộ 14 track
+cũ, tổng 20 track / 13,92 MiB, vòng playlist ~20 phút.
 
 ## 1. "Nhạc hot" nghĩa là gì cho sàn này — và ranh giới bản quyền
 
@@ -77,7 +77,7 @@ cháy theo BPM của chính track đang chạy (beat timer riêng, xem mục 4).
 `music.onSectionChange = (sectionId) => {...}` báo khi đổi đoạn synth.
 `music.currentSectionId` đọc đoạn hiện tại.
 
-## 3. Track file — catalog 14 track (Mixkit Free License)
+## 3. Track file — catalog 20 track (Mixkit Free License)
 
 Chế độ mặc định là `file` (`CONFIG.music.defaultMode: 'file'`): mở trang,
 bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết track nạp
@@ -99,10 +99,62 @@ bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết tr
 | 12 | Let's Move — Michael Ramir C | 120.0 | 32 bar, từ 31.97s | 768 KB | ★ |
 | 13 | Hard Techno — Arulo | 120.0 | 32 bar, từ 15.99s | 768 KB | ★ |
 | 14 | Trance Party — Alejandro Magaña | 136.0 | 32 bar, từ 28.64s | 679 KB | ★ |
+| 15 | Feast From The East — Michael Ramir C | 123.0 | 32 bar, từ 33.17s | 750 KB | ★ |
+| 16 | Slow Trance Morning — Alejandro Magaña | 124.0 | 32 bar, từ 9.68s | 744 KB | ★ |
+| 17 | Deep Techno Ambience — Alejandro Magaña | 124.9 | 32 bar, từ 34.59s | 739 KB | ★ |
+| 18 | Talent in the Air — Diego Nava | 121.9 | 32 bar, từ 31.50s | 757 KB | ★ |
+| 19 | Getting Older — Diego Nava | 122.9 | 32 bar, từ 31.26s | 751 KB | ★ |
+| 20 | Razor Edge — Michael Ramir C | 122.0 | 32 bar, từ 39.34s | 756 KB | ★ |
 
-Tổng: 14 file, 9,65 MiB (< 10 MiB ngân sách). File: `audio/<slug>-<mixkit-id>.mp3`
+Tổng: 20 file, 13,92 MiB (< 15 MiB ngân sách — sếp duyệt nâng trần ngày
+03/11/2026). File: `audio/<slug>-<mixkit-id>.mp3`
 (MP3 96 kbps, 44,1 kHz stereo). Mỗi entry trong `CONFIG.music.tracks`:
 `{ src, title, artist, license, licenseUrl, bpm, bars, gain, hot }`.
+
+**Đợt 6 (03/11/2026, lệnh trực tiếp của sếp 00:39: nâng trần từ 10 MiB
+lên 15 MiB, thêm track tới ~20–21 track, vòng ~20 phút).** Ưu tiên 2
+bản dự bị đợt 5: Feast From The East còn file cắt sẵn — cắt lại từ nguồn
+gốc sau sự cố mất `/tmp` (VM restart xóa toàn bộ `/tmp/dj5` + `/tmp/dj6`;
+file cắt lại giống hệt bản cũ từng byte: MD5 `53baa1fc…`, 750.177 byte)
+và kiểm chứng lại đầy đủ (BPM 2 phương pháp 123.0/123.0, grid 2.32 trên
+file cắt, đúng 32 bar ±0,01s, peak −2,7 dB, MD5 khác mọi file cũ);
+Minimal Techno 01 (Mixkit 162) KHÔNG đưa vào — kiểm chứng thêm đợt 6
+xác nhận lưới beat không khóa chắc (grid 1.50 toàn track, 1.92 trên file
+cắt, quét mọi cửa sổ 32 bar chỉ 1.55 ở 128.0 trong khi 2 phương pháp đều
+cho 129.2 — lưới ở 129.2 chỉ 1.07), dù năng lượng rất cao (RMS 0.598).
+Quét mới có hệ thống: liệt kê toàn bộ taxonomy Mixkit từ sitemap
+(genre/mood/tag chưa quét: dance-pop, disco, electro-house, electropop,
+funk, moombahton, salsa, synthpop, tech-house, trap, tropical-house,
+grime, latin-pop, world-fusion, funk-rock + mood energetic/euphoric/
+exciting/festive/powerful/propulsive/triumphant/upbeat/driving + tag
+aerobics/parties/racing/extreme-sports/olympics/fight/adventure/summer/
+fashion/city/showbiz) → 283 ID, trừ 99 ID đã đo/loại → 217 ID mới, tải
+27 ứng viên danceable nhất, đo 2 phương pháp + grid. 5 track đạt chuẩn
+được thêm (đều cắt ở BPM lưới, kiểm chứng lại trên file cắt: 2 phương
+pháp đồng thuận, grid 2.67–3.94, đúng 32 bar, peak −1…−4 dB, MD5 khác
+nhau): Slow Trance Morning (124.0, grid 3.94, RMS cắt 0.321 — mạnh nhất
+đợt), Deep Techno Ambience (124.9, grid 2.92, RMS 0.361 — 2 phương pháp
+cho 123.0 do lượng tử hóa lag tự tương quan, lưới 0,1 BPM khóa ở 124.9–
+125.0 nên ghi 124.9 đúng file đã cắt), Razor Edge (122.0, grid 3.01, RMS
+0.188), Getting Older (122.9, grid 3.26, RMS 0.178), Talent in the Air
+(121.9, grid 2.67, RMS 0.169). Loại ở vòng đo/cắt: Hiding Under (grid
+2.80 nhưng RMS cắt chỉ 0.141 — yếu nhất, dưới ngưỡng 0.16 — cộng thêm
+lệch phương pháp 129.2/127.9), DJ BS (2 phương pháp lệch nhau trên file
+cắt 86.1/129.2), Dub Techno Groove (99.4/123.0), Loner (117.5/92.3),
+I Do! (86.1/129.2), Flopper (123.0/86.1), Alright (161.5/86.1), toàn bộ
+nhóm chậm dưới 118 BPM (Lonerism 112.3, Better Times 117.5, Oh Lord
+112.3, Winter Breeze 117.5, Tides Turning 107.7, Our Ups and Downs 117.5,
+Be Happy 117.5, It's Now or Never ~89, Lies and More Lies 99.4) và nhóm
+năng lượng yếu (The Great Wall 0.138, On a Breezy Day 0.147, Disco Ain't
+Old School 0.107, Dirty Blues 0.123, One More Time 0.088 + grid 1.55,
+Protesting Robot grid 1.17). Giữ nguyên toàn bộ 14 track cũ, không xoay
+loại track nào. Vẫn không tìm được track hợp pháp nào có tiếng đám đông
+thật (heuristic phổ có chỉ đoạn ồn nhưng không xác nhận được bằng tai
+nên không ghi nhận; TeknoAXE CC-BY chưa dùng — để dành đợt sau nếu cần).
+Dừng ở 20 track / 13,92 MiB, chừa ~1,1 MiB dưới trần để khỏi phải nhét
+track yếu vào cho đủ số. Scratch đợt 6 dời sang `~/workspace/dj6-scratch/`
+(persistent — `/tmp` bị xóa sau restart, script đo/cắt đợt 5 đã mất và
+được viết lại từ đầu tại đây).
 
 **Đợt 5 (03/11/2026, lệnh trực tiếp của sếp 00:15–00:19, mở rộng dần):
 mọi nước, ưu tiên Vinahouse mạnh nhất, càng nhiều bản càng tốt, tiếng
@@ -291,9 +343,10 @@ hay lặp 1 list cũ. Agent nhạc (hoặc người phụ trách) làm mỗi tu�
    vào `CONFIG.music.tracks` (`hot: true` nếu năng lượng cao, BPM
    124–150) → `node --check` + harness (nếu sửa engine) → ghi bảng mục 3
    + cập nhật tổng dung lượng.
-5. **Ngân sách:** tổng `audio/` giữ < 10 MB. Khi vượt: loại track ít
-   năng lượng nhất (RMS cửa sổ thấp nhất) hoặc rút xuống 8–10 track.
-   Mỗi lần làm mới thay 2–3 track cũ nhất để list luôn tươi.
+5. **Ngân sách:** tổng `audio/` giữ < 15 MB (sếp duyệt nâng từ 10 MB lên
+   15 MB ngày 03/11/2026, đợt 6). Khi vượt: loại track ít năng lượng nhất
+   (RMS file đã cắt thấp nhất) hoặc rút số track. Mỗi lần làm mới thay
+   2–3 track cũ nhất để list luôn tươi.
 6. **Kiểm chứng trước live:** nghe 3 vòng lặp liền mạch trên máy thật
    (điểm nối không tách/click), nghe 1 lần chuyển track (không khoảng
    lặng), kiểm tra đèn đúng nhịp ở 2 BPM khác nhau.

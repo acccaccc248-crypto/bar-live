@@ -11,7 +11,7 @@ trước khi push phải `git pull --rebase`, chạy `npm run check` + harness c
 | Dancer + skill + vương miện | agent-dancers | `js/dancers.js`, `CONFIG.dancers`, `CONFIG.skills` | harness dancer (xem README), `npm run check` |
 | Relay sự kiện live | agent-relay | `js/relay.js`, `CONFIG.relay` | `npm run check`, kiểm chứng nối EulerStream |
 | Engine nhạc (phát, chuyển track) | agent-audio | `js/audio.js`, `CONFIG.music` (trừ `tracks`) | harness audio, `npm run check` |
-| Nhạc DJ + catalog track | agent-music (đang chạy đợt 3) | `audio/*.mp3`, `audio/MUSIC.md`, `CONFIG.music.tracks` | đo BPM 2 cách, MD5 khác nhau, tổng <10MB |
+| Nhạc DJ + catalog track | agent-music (đang chạy đợt 3) | `audio/*.mp3`, `audio/MUSIC.md`, `CONFIG.music.tracks` | đo BPM 2 cách, MD5 khác nhau, tổng <15MB |
 | Sự kiện + lệnh chat + demo | agent-chính (đệ) | `js/events.js`, `js/demo.js`, `js/main.js`, `config.js` (khung chung) | `npm run check`, test `?demo=1` trên Redmi |
 
 Ghi chú:

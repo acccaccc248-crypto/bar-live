@@ -411,6 +411,13 @@ export class DancerManager {
     return this.dancers.get(String(uniqueId)) || null;
   }
 
+  // Ghi nhận tương tác mới nhất của viewer (mọi loại event đều gọi từ
+  // handleEvent) — hết idleLeaveSeconds không tương tác thì rời sàn.
+  markActive(uniqueId, now) {
+    const dancer = this.dancers.get(String(uniqueId));
+    if (dancer) dancer.lastActivityAt = now;
+  }
+
   addOrGet(user) {
     const id = String(user.uniqueId);
     const existing = this.dancers.get(id);
@@ -536,6 +543,9 @@ export class DancerManager {
       phaseOffset: Math.random() * Math.PI * 2,
       enterProgress: 0,
       leaveProgress: 0,
+      // Lần tương tác gần nhất (cùng gốc thời gian với handleEvent `now`):
+      // quá idleLeaveSeconds không có event nào thì rời sàn (out live ~5p).
+      lastActivityAt: performance.now() / 1000,
       orbitUntil: 0,
       orbitAngle: Math.random() * Math.PI * 2,
       jumpUntil: 0,
@@ -1224,6 +1234,16 @@ export class DancerManager {
         dancer.nameSprite.material.opacity = opacity;
         group.scale.setScalar(Math.max(0.05, 1 - dancer.leaveProgress * 0.8) * (d.scale || 1));
         if (dancer.leaveProgress >= 1) this._removeDancer(dancer);
+        continue;
+      }
+
+      // Out live ~5 phút không tương tác thì rời sàn (user lệnh 00:01).
+      // Mọi mode đều áp (DJ/VIP cũng vậy; đường rời sàn sẵn có tự dọn
+      // vương miện + bàn DJ). Skill/lệnh mới nhất đều đã refresh
+      // lastActivityAt nên không thể hết hạn giữa chừng (skill ≤ ~30s).
+      const idleSeconds = d.idleLeaveSeconds || 300;
+      if (time - (dancer.lastActivityAt ?? time) > idleSeconds) {
+        this.startLeave(dancer);
         continue;
       }
 

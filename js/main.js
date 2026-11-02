@@ -119,6 +119,9 @@ function giftTierFor(diamonds) {
 // ---- Xử lý event live → hiệu ứng (mọi ngưỡng từ config.js) ----
 function handleEvent(evt) {
   const now = performance.now() / 1000;
+  // Mọi event đều là dấu hiệu viewer còn xem → refresh giờ tương tác
+  // (hết idleLeaveSeconds im lặng thì rời sàn).
+  dancers.markActive(evt.user.uniqueId, now);
   if (evt.type === 'chat') {
     const command = matchCommand(evt.text);
     if (command) {

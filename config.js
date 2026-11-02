@@ -244,8 +244,10 @@ export const CONFIG = {
   // chấp nhận lệnh nằm trong câu. Thêm lệnh mới = thêm chuỗi vào đây.
   commands: {
     dance: ['nhảy', 'nhay', 'dance'],
-    changeCharacter: ['đổi nv', 'doi nv', 'đổi nhân vật', 'doi nhan vat'],
+    changeCharacter: ['đổi nv', 'doi nv', 'đổi nhân vật', 'doi nhan vat', 'đổi chỗ', 'doi cho'],
     orbit: ['đi vòng', 'di vong', 'đi vòng quanh', 'di vong quanh'],
+    // Giơ 2 tay lên (user lệnh 23:36; nhánh xử lý trong dancers.js applyCommand).
+    armsUp: ['giơ tay', 'gio tay', 'giơ 2 tay', 'gio 2 tay', '2 tay'],
   },
 
   // Gift theo mức kim cương. Mọi hiệu ứng gift đọc từ đây.
@@ -351,10 +353,12 @@ export const CONFIG = {
   },
 
   // Gán sự kiện live → lên sàn. Like cần đủ count mới lên sàn (chống spam).
+  // Người xem vừa vào phòng tự lên sàn, khỏi đợi bình luận (user 23:36).
   events: {
     chatJoinsFloor: true,
     followJoinsFloor: true,
     giftJoinsFloor: true,
+    joinJoinsFloor: true,
     likeJoinThreshold: 10,
     tickerMaxItems: 4,
     tickerDurationMs: 6000,

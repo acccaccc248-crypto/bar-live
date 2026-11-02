@@ -211,9 +211,18 @@ function mapMessage(msg) {
       if (!isFollow) return null;
       return { type: 'follow', user: toInternalUser(data.user), text: '', giftName: '', diamonds: 0, count: 1 };
     }
+    case 'WebcastMemberMessage': {
+      // Người xem VÀO phòng (user lệnh 23:36 02/11): tự lên sàn nhảy,
+      // khỏi đợi bình luận. Phòng thủ: bỏ qua action rời phòng và
+      // message không có user thật (tránh dancer "Khách" trùng nhau).
+      const user = toInternalUser(data.user);
+      if (!user.uniqueId) return null;
+      const action = String(data.action || data.actionId || '');
+      if (/leave|left|exit/i.test(action)) return null;
+      return { type: 'join', user, text: '', giftName: '', diamonds: 0, count: 1 };
+    }
     case 'WebcastRoomUserSeqMessage':
-    case 'WebcastMemberMessage':
-      // Viewer count / vào phòng: không cần cho sàn nhảy (chat đã đưa lên sàn).
+      // Đếm viewer: không cần cho sàn nhảy.
       return null;
     case 'WebcastControlMessage':
       // Control (vd stream end) — server sẽ đóng socket kèm mã; chỉ log.

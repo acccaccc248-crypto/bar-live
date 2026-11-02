@@ -84,6 +84,44 @@ html, body {
   opacity: 0.7;
 }
 
+/* Bảng hướng dẫn skill góc phải, dưới bảng top gift (user lệnh 23:36).
+   Cùng bề rộng/bề mặt với #top-board; không nhận click để khỏi chặn sàn. */
+#help-board {
+  position: fixed;
+  top: 168px;
+  right: 10px;
+  z-index: 10;
+  width: min(220px, 30vw);
+  background: rgba(10, 5, 28, 0.72);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 12px;
+  padding: 8px 10px;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+#help-board h2 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #00e5ff;
+}
+
+#help-board h2:not(:first-child) {
+  margin-top: 8px;
+}
+
+#help-board ul {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+#help-board li b {
+  color: #ffe600;
+}
+
 /* Ticker sự kiện nhỏ góc trái dưới. */
 #ticker {
   position: fixed;

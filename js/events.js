@@ -3,12 +3,13 @@
 // với đúng 1 định dạng event, để logic cảnh không phụ thuộc nguồn dữ liệu.
 //
 // Định dạng event:
-//   { type: 'chat' | 'like' | 'follow' | 'gift',
+//   { type: 'chat' | 'like' | 'follow' | 'gift' | 'join',
 //     user: { name: string, uniqueId: string, avatar: string },
 //     text: string,            // chat: nội dung; các loại khác có thể rỗng
 //     giftName: string,        // gift
 //     diamonds: number,        // gift: kim cương / 1 món
 //     count: number }          // like/gift: số lượng
+// 'join' = người xem vừa vào phòng (tự lên sàn, khỏi đợi bình luận).
 //
 // Dùng: BarEvents.on('chat', fn) / BarEvents.emit(evt)
 //       BarEvents.on('*', fn) nhận mọi loại.

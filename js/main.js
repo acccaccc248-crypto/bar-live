@@ -136,6 +136,10 @@ function handleEvent(evt) {
     } else if (evt.count >= CONFIG.events.likeJoinThreshold) {
       dancers.addOrGet(evt.user);
     }
+  } else if (evt.type === 'join') {
+    // Người xem vừa vào phòng: tự lên sàn, khỏi đợi bình luận (user 23:36).
+    // Không ticker (join rất thường xuyên, tránh spam), không boost.
+    if (CONFIG.events.joinJoinsFloor) dancers.addOrGet(evt.user);
   } else if (evt.type === 'follow') {
     if (CONFIG.events.followJoinsFloor) {
       const dancer = dancers.addOrGet(evt.user);
@@ -165,7 +169,7 @@ function handleEvent(evt) {
 }
 BarEvents.on('*', handleEvent);
 
-// ---- Relay stub: chưa nối thật, chỉ hiện trạng thái ----
+// ---- Relay: nối thật qua EulerStream (xem js/relay.js) ----
 Relay.connect({});
 
 // ---- Nút nhạc / FPS / Bắt đầu (unlock audio) ----

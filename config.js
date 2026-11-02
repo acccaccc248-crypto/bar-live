@@ -363,7 +363,7 @@ export const CONFIG = {
     followJoinsFloor: true,
     giftJoinsFloor: true,
     joinJoinsFloor: true,
-    likeJoinThreshold: 10,
+    likeJoinThreshold: 1, // user lệnh 23:55: thả tim là vào sàn — mọi like đều lên sàn
     tickerMaxItems: 4,
     tickerDurationMs: 6000,
   },

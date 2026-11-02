@@ -87,7 +87,7 @@ globalThis.Image = FakeEl;
 
 const THREE = await import('three');
 const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
-const { DancerManager, buildPoleClipData, sampleRootYCurve } = await import('../js/dancers.js');
+const { DancerManager, buildPoleClipData, sampleRootYCurve, brightenPoleModelMaterials } = await import('../js/dancers.js');
 const { CONFIG } = await import('../config.js');
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url)) + '/..';
@@ -151,6 +151,52 @@ modelRoot.traverse((o) => {
 });
 check(meshCount >= 1, 'GLB có mesh (' + meshCount + ')');
 check(texCount >= 1, 'GLB có texture da (' + texCount + ')');
+// Mẫu NÉT (lệnh 06:12): đọc thẳng JSON chunk của GLB — mesh riêng cho
+// tóc/mắt, texture thân/tóc 2048², tổng < 60k tris. (Texture đã load
+// qua Image stub nên không đo kích thước từ three được.)
+const glbJsonLen = glbBytes.readUInt32LE(12);
+const glbJson = JSON.parse(glbBytes.subarray(20, 20 + glbJsonLen).toString('utf8'));
+const binStart = 20 + glbJsonLen + 8;
+function imageSize(img) {
+  const bv = glbJson.bufferViews[img.bufferView];
+  const raw = glbBytes.subarray(binStart + (bv.byteOffset || 0), binStart + (bv.byteOffset || 0) + bv.byteLength);
+  if (raw[0] === 0x89 && raw[1] === 0x50) { // PNG: IHDR
+    return [raw.readUInt32BE(16), raw.readUInt32BE(20)];
+  }
+  if (raw[0] === 0xff && raw[1] === 0xd8) { // JPEG: quét marker SOF
+    let p = 2;
+    while (p + 9 < raw.length) {
+      if (raw[p] !== 0xff) { p += 1; continue; }
+      const marker = raw[p + 1];
+      if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
+        return [raw.readUInt16BE(p + 7), raw.readUInt16BE(p + 5)];
+      }
+      if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { p += 2; continue; }
+      p += 2 + raw.readUInt16BE(p + 2);
+    }
+  }
+  return [0, 0];
+}
+const meshNames = glbJson.meshes.map((m) => m.name);
+check(meshNames.length >= 3, 'GLB đa-mesh (thân/đồ/tóc/mắt riêng): ' + meshNames.length + ' mesh');
+check(meshNames.some((n) => n.includes('long01')), 'có mesh tóc riêng long01 (không vẽ trên texture)');
+check(meshNames.some((n) => n.includes('high-poly')), 'có mesh mắt 3D riêng (high-poly)');
+let totalTris = 0;
+for (const m of glbJson.meshes) {
+  for (const p of m.primitives) totalTris += glbJson.accessors[p.indices].count / 3;
+}
+check(totalTris < 60000, 'tổng < 60k tris (' + totalTris + ')');
+const imgSizes = {};
+for (const img of glbJson.images || []) imgSizes[img.name] = imageSize(img);
+const sizeOf = (frag) => {
+  const k = Object.keys(imgSizes).find((n) => n.includes(frag));
+  return k ? imgSizes[k] : [0, 0];
+};
+const bodyTex = sizeOf('diffuse3');
+check(bodyTex[0] >= 2048 && bodyTex[1] >= 2048, 'texture da ≥2048² (' + bodyTex.join('x') + ')');
+const hairTex = sizeOf('long01');
+check(hairTex[0] >= 2048 && hairTex[1] >= 2048, 'texture tóc ≥2048² (' + hairTex.join('x') + ')');
+check(glbBytes.length <= 8 * 1024 * 1024, 'GLB ≤ 8MB (' + (glbBytes.length / 1048576).toFixed(2) + 'MB)');
 
 console.log('[2] sampleRootYCurve');
 check(sampleRootYCurve(null, 1) === 0, 'curve rỗng -> 0');
@@ -189,7 +235,8 @@ check(skillA.getEffectiveWeight() < 0.01, 'sau crossfade skill weight về 0 (' 
 check(skillA.time > 0, 'skill action đã chạy (time=' + skillA.time.toFixed(2) + ')');
 
 console.log('[4] Fallback procedural khi GLTFLoader URL lỗi (Node)');
-const fakeScene = { add() {}, remove() {} };
+const addedToScene = [];
+const fakeScene = { add(o) { addedToScene.push(o); }, remove() {} };
 const mgr = new DancerManager(fakeScene, {});
 await new Promise((r) => setTimeout(r, 300));
 const pole = mgr.poleDancer;
@@ -197,9 +244,34 @@ check(pole.modelReady === false, 'Node: modelReady=false (URL import bị chặn
 check(pole.proceduralBuilt === true, 'fallback procedural đã dựng body');
 check(!!pole.nameSprite, 'fallback có nameSprite');
 check(pole.group.children.length > 0, 'fallback group có con');
+// Nổi bật mẫu nữ (lệnh 06:13): vòng sáng dưới chân + nhãn tên phóng to.
+const ring = addedToScene.find((o) => o.isMesh && o.geometry && o.geometry.type === 'RingGeometry');
+check(!!ring, 'vòng sáng dưới chân đã thêm vào scene');
+if (ring) {
+  check(Math.abs(ring.position.y - CONFIG.dancers.poleDancer.glowRing.y) < 1e-6, 'vòng sáng y=' + ring.position.y + ' (trên đế lồng)');
+  check(Math.abs(ring.position.x - CONFIG.scene.cage.centerX) < 1e-6 && Math.abs(ring.position.z - CONFIG.scene.cage.centerZ) < 1e-6, 'vòng sáng ở tâm lồng');
+}
+const labelW = pole.nameSprite.scale.x;
+check(Math.abs(labelW - CONFIG.dancers.nameLabelWidth * CONFIG.dancers.poleDancer.labelScale) < 1e-6,
+  'nhãn tên cô múa cột phóng ' + CONFIG.dancers.poleDancer.labelScale + 'x (' + labelW.toFixed(3) + 'm)');
 
 console.log('[5] Đường model trong update(): bám cột + xoay + vương miện + skill');
 // Gắn model thật vào pole dancer (y như _loadPoleModel làm).
+brightenPoleModelMaterials(modelRoot);
+{
+  let suitOk = false;
+  let skinR = 0;
+  modelRoot.traverse((o) => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      if (m.name.includes('sportsuit') && m.emissiveIntensity === 0.3) suitOk = true;
+      if (m.name.includes('body')) skinR = m.color.r;
+    }
+  });
+  check(suitOk, 'đồ diễn có emissive tím 0.3 (viền neon nhẹ)');
+  check(skinR > 1, 'da sáng hơn (color r=' + skinR.toFixed(2) + ' > 1)');
+}
 pole.group.add(modelRoot);
 pole.modelRoot = modelRoot;
 pole.headBone = modelRoot.getObjectByName('head');

@@ -67,6 +67,16 @@ export const CONFIG = {
     vipSpotIntensity: 60,
     vipSpotDistance: 20,
     vipSpotAngle: 0.45,
+    // Spotlight RIÊNG chiếu lồng múa cột (user lệnh 06:13: làm nổi bật
+    // mẫu nữ — tâm điểm nhìn đầu tiên). Luôn bật, góc hẹp chỉ phủ lồng.
+    cageSpotColor: 0xffd9ec, // hồng nhạt ấm
+    cageSpotIntensity: 55,
+    cageSpotDistance: 20,
+    cageSpotAngle: 0.38, // phủ ~2,4m ở tâm lồng, không cháy dàn ngoài
+    cageSpotPenumbra: 0.5,
+    cageSpotDecay: 1.8,
+    cageSpotPosition: [2.2, 5.8, 3.2], // trước-phải-trên, tránh quả cầu disco
+    cageSpotTarget: [0, 1.0, 0.4], // tâm lồng
   },
 
   discoBall: {
@@ -367,6 +377,18 @@ export const CONFIG = {
       waistbandRadius: 0.18,
       waistbandTube: 0.02,
       nameSpriteY: 1.9, // tên trên đầu model GLB (đỉnh đầu 1,63m)
+      // Nhãn tên cô múa cột rõ hơn dàn ngoài một chút (lệnh 06:13),
+      // không che mặt (đã tính cả vương miện + labelLiftY).
+      labelScale: 1.15,
+      // Vòng sáng dưới chân cô múa cột (lệnh 06:13): emissive thuần,
+      // không thêm đèn; y = 0,12 nằm trên mặt đế lồng (đỉnh 0,10).
+      glowRing: {
+        color: 0xff5fb0,
+        innerRadius: 0.3, // ngoài chân đế cột (0,22)
+        outerRadius: 0.6,
+        y: 0.12,
+        opacity: 0.55,
+      },
       crownScale: 0.3, // vương miện thu nhỏ theo đầu người thật (0.4*0.3≈0.12)
       orbitRadius: 0.34, // bám sát cột (cột r=0.05, tay với tới cột)
       spinSpeed: 1.1, // rad/s cơ bản quanh cột

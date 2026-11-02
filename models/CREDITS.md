@@ -4,23 +4,41 @@ Cô múa cột trong lồng dùng mẫu người thật (GLB) + clip mocap, thay
 body procedural cũ (hình khối + texture phẳng). Xem `js/dancers.js`
 (`_createPoleDancer`, `_loadPoleModel`) và `CONFIG.dancers.poleDancer`.
 
-## Model: `pole-dancer.glb` (2,77 MB)
+## Model: `pole-dancer.glb` (6,03 MB) — bản NÉT, thay mẫu v1 mờ
 
-- Nguồn: nhân vật nữ MakeHuman/MPFB 2, file `human.glb` của dự án mã
-  nguồn mở **vsim** (https://github.com/kunalkushwaha/vsim,
-  `packages/assets/library/human.glb`).
-- Giấy phép: **CC0** — output của MakeHuman thuộc phạm vi công cộng;
-  texture da trong gói CC0 `makehuman_system_assets` (xem `CREDITS.md`
-  của vsim). Không cần ghi attribution, không cần tài khoản.
-- Thông số đã kiểm chứng: 1 mesh, 21.833 đỉnh, ~36.972 tam giác
-  (< 50k), rig 53 khớp (đủ xương ngón tay), 1 texture 1024² nhúng trong
-  file, cao 1,66 m. Không chỉnh sửa gì thêm (giữ nguyên file gốc).
-- Ngoại hình thật: thân màu da với họa tiết hình học tối (bodysuit vẽ
-  trên texture), tóc đen dài vẽ trên texture (nhìn tốt từ sau/hông),
-  mặt vẽ trên texture (nhìn rõ là mặt vẽ khi zoom gần — giới hạn thật
-  của mẫu miễn phí, xem báo cáo).
+- Nguồn: tự xuất bằng **MPFB 2** (MakeHuman Plugin For Blender 2.0.0,
+  Blender 4.2.0 headless) từ **system assets CC0** của MakeHuman —
+  script xuất: `~/workspace/mpfb-scratch/gen-human.py` (scratch, không
+  commit), macro: nữ, tuổi 0.5, cao 0.6, asian 1.0, cupsize 0.65.
+- Giấy phép: **CC0** — toàn bộ asset hệ thống của MakeHuman (da, tóc,
+  mắt, lông mày, lông mi, đồ) thuộc phạm vi công cộng, không cần ghi
+  attribution, không cần tài khoản. Không mua, không lách login.
+- Asset đã dùng (đều trong gói `makehuman_system_assets_cc0`):
+  da `young_asian_female` (diffuse 2048²), tóc `long01` (mesh tóc thật
+  + diffuse 2048²), mắt `high-poly` (nhãn cầu 3D + iris 1024²),
+  `eyebrow001`, `eyelashes01`, đồ diễn `female_sportsuit01` (crop top
+  xanh + legging đen, diffuse 2048²).
+- Thông số đã kiểm chứng: 6 mesh (thân, đồ, tóc, mắt, mày, mi),
+  33.036 tam giác (< 60k), rig **53 khớp, cùng tên xương với rig v1**
+  nên 2 clip cũ chạy thẳng không cần remap, cao ~1,62 m (hông 0,86 m).
+  Texture: thân/tóc/đồ 2048², mắt 1024², mày/mi 512².
+- Mặt/Tóc thật: sống mũi, môi, hốc mắt, gò má là hình khối 3D của
+  mesh MakeHuman (không vẽ phẳng); mắt là mesh nhãn cầu riêng có tròng
+  nâu; tóc là mesh riêng có độ phồng, sợi rủ qua vai; lông mày/mi là
+  mesh riêng. Texture mặt nét khi zoom gần (đã render kiểm chứng).
+- Nén: texture đục (da, đồ) chuyển PNG → JPEG q90 để file ≤ 8 MB
+  (10,6 MB → 6,03 MB); texture có alpha thật (tóc, mắt, mày, mi) và
+  normal map của đồ GIỮ NGUYÊN PNG. Script nén:
+  `~/workspace/mpfb-scratch/compress-glb.py` (scratch, không commit).
+- Mẫu v1 bị loại: `pole-dancer-v1-blurry-backup.glb` (2,77 MB, file
+  `human.glb` của vsim, texture 1024², mặt/tóc vẽ trên texture) — user
+  chê mờ 06:11 03/11, KHÔNG DÙNG NỮA, giữ lại trong repo chỉ làm backup.
 - Dự phòng: nếu GLB hoặc clip không tải được, trang tự dựng lại body
   procedural cũ (`_buildProceduralPoleBody`) — live không bao giờ trống lồng.
+- Giới hạn thật còn lại: da không có subsurface scattering; tóc là
+  khối mesh rủ, không mô phỏng từng sợi; ở khoảng cách camera lồng
+  (~10 m) chi tiết mặt không phân giải được — mẫu nổi bật nhờ dáng +
+  da sáng + spotlight + vòng sáng dưới chân (xem lệnh 06:13).
 
 ## Clip nhảy thường (idle loop): `pole-idle.clip.json` (286 KB)
 

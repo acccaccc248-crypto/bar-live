@@ -61,6 +61,31 @@ export function sampleRootYCurve(curve, time) {
   return values[lo] + (values[hi] - values[lo]) * f;
 }
 
+// Làm nổi bật mẫu nữ GLB (user lệnh 06:13): da sáng hơn chút, đồ diễn
+// có emissive tím nhẹ theo texture (viền neon), tóc có highlight ấm —
+// nổi nhưng không lòe loẹt, không cháy sáng. Spotlight riêng trong
+// scene.js làm phần còn lại. Export để harness kiểm chứng được.
+export function brightenPoleModelMaterials(modelRoot) {
+  modelRoot.traverse((o) => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      if (!m || !m.isMeshStandardMaterial) continue;
+      if (m.name.includes('sportsuit')) {
+        m.emissive = new THREE.Color(0x8a2be2);
+        if (m.map) m.emissiveMap = m.map;
+        m.emissiveIntensity = 0.3;
+      } else if (m.name.includes('long01')) {
+        m.emissive = new THREE.Color(0x5a3a22);
+        if (m.map) m.emissiveMap = m.map;
+        m.emissiveIntensity = 0.18;
+      } else if (m.name.includes('body')) {
+        m.color.setRGB(1.12, 1.1, 1.08);
+      }
+    }
+  });
+}
+
 // Temp dùng chung cho _syncPoleHead (tránh cấp phát mỗi frame).
 const _poleHeadPos = new THREE.Vector3();
 const _poleHeadQuat = new THREE.Quaternion();
@@ -645,7 +670,7 @@ function makeAvatarTexture(avatarUrl, displayName) {
   return texture;
 }
 
-function makeNameSprite(displayName) {
+function makeNameSprite(displayName, scaleMult = 1) {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 48;
@@ -666,7 +691,11 @@ function makeNameSprite(displayName) {
   ctx.fillText(label, 128, 25);
   const texture = new THREE.CanvasTexture(canvas);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
-  sprite.scale.set(CONFIG.dancers.nameLabelWidth, CONFIG.dancers.nameLabelHeight, 1);
+  sprite.scale.set(
+    CONFIG.dancers.nameLabelWidth * scaleMult,
+    CONFIG.dancers.nameLabelHeight * scaleMult,
+    1,
+  );
   return sprite;
 }
 
@@ -798,10 +827,30 @@ export class DancerManager {
     group.position.set(cage.centerX, 0, cage.centerZ);
     const headGroup = new THREE.Group();
     group.add(headGroup);
-    const nameSprite = makeNameSprite(pc.defaultName);
+    const nameSprite = makeNameSprite(pc.defaultName, pc.labelScale || 1);
     nameSprite.position.set(0, pc.nameSpriteY, 0.02);
     group.add(nameSprite);
     this.scene.add(group);
+    // Vòng sáng dưới chân cô múa cột (user lệnh 06:13: làm nổi bật mẫu
+    // nữ). Mesh emissive thuần (Basic = luôn sáng), KHÔNG thêm đèn; đặt
+    // ở scene, KHÔNG phải con của group — group đi vòng quanh cột mỗi
+    // frame nên vòng sáng phải đứng yên ở tâm lồng.
+    const ringCfg = pc.glowRing;
+    if (ringCfg) {
+      const cageGlow = new THREE.Mesh(
+        new THREE.RingGeometry(ringCfg.innerRadius, ringCfg.outerRadius, 40),
+        new THREE.MeshBasicMaterial({
+          color: ringCfg.color,
+          transparent: true,
+          opacity: ringCfg.opacity,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        }),
+      );
+      cageGlow.rotation.x = -Math.PI / 2;
+      cageGlow.position.set(cage.centerX, ringCfg.y, cage.centerZ);
+      this.scene.add(cageGlow);
+    }
     const dancer = {
       user: { name: pc.defaultName, uniqueId: '__pole__', avatar: '' },
       group,
@@ -1135,6 +1184,7 @@ export class DancerManager {
     dancer.poleClips = { idle: idleData, skill: skillData };
     dancer.poleActions = { idle: idleAction, skill: skillAction };
     dancer.modelReady = true;
+    brightenPoleModelMaterials(modelRoot);
     idleAction.play();
     skillAction.play();
     skillAction.setEffectiveWeight(0);
@@ -1709,7 +1759,7 @@ export class DancerManager {
       old.material.dispose();
       pole.group.remove(old);
     }
-    const sprite = makeNameSprite(name);
+    const sprite = makeNameSprite(name, CONFIG.dancers.poleDancer.labelScale || 1);
     sprite.position.set(0, pole.nameBaseY, 0.02);
     pole.nameSprite = sprite;
     pole.group.add(sprite);

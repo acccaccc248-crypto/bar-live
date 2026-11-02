@@ -6,7 +6,7 @@
 // pulseBeat, setVipSpotlight, spawnFireworks, spawnRing, update,
 // vị trí slot/bàn DJ/bục VIP, khung camera skill.
 // Nhẹ cho máy yếu: vật liệu rẻ (Basic/Lambert), KHÔNG shadow map,
-// không thêm đèn thật, nan lồng + vòm dùng InstancedMesh (2 draw call).
+// +1 spotlight lồng (lệnh 06:13), nan lồng + vòm dùng InstancedMesh (2 draw call).
 
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
@@ -54,6 +54,21 @@ export function createBarScene() {
   );
   vipSpot.target.position.set(...CONFIG.stage.vipPosition);
   scene.add(vipSpot, vipSpot.target);
+
+  // Spotlight RIÊNG chiếu cô múa cột trong lồng (user lệnh 06:13: làm
+  // nổi bật mẫu nữ — tâm điểm nhìn đầu tiên khi mở trang). Luôn bật,
+  // góc hẹp chỉ phủ lồng, không shadow (giữ hiệu năng máy yếu).
+  const cageSpot = new THREE.SpotLight(
+    CONFIG.lights.cageSpotColor,
+    CONFIG.lights.cageSpotIntensity,
+    CONFIG.lights.cageSpotDistance,
+    CONFIG.lights.cageSpotAngle,
+    CONFIG.lights.cageSpotPenumbra,
+    CONFIG.lights.cageSpotDecay,
+  );
+  cageSpot.position.set(...CONFIG.lights.cageSpotPosition);
+  cageSpot.target.position.set(...CONFIG.lights.cageSpotTarget);
+  scene.add(cageSpot, cageSpot.target);
 
   // ---- Sàn nhảy: lưới ô ----
   const floorGroup = new THREE.Group();

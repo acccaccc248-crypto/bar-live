@@ -75,6 +75,49 @@ export const CONFIG = {
     spinSpeed: 0.9,
   },
 
+  // Giao diện phòng bar mới (user lệnh 01:46 + ảnh mẫu 01:53): lồng sắt
+  // trung tâm chứa sàn nhảy, quả cầu disco treo trong lồng, laser,
+  // tường LED, sàn bóng, ghế VIP 2 bên. CHỈ khối scene này thuộc owner
+  // scene; kích thước sàn/dancer/bàn DJ/bục VIP giữ nguyên ở khối khác.
+  // Lồng: bán kính 4.8m chứa vừa lưới slot (slot xa tâm nhất 4.63m —
+  // xem _buildSlots trong dancers.js); tâm dời +z để vành sau không
+  // chạm quầy bar (z=-4.9). Không thu nhỏ slot, không sửa dancers.js.
+  scene: {
+    cage: {
+      centerX: 0,
+      centerZ: 0.4,
+      radius: 4.8,
+      barCount: 48,
+      barRadius: 0.035,
+      barHeight: 3.3,
+      barBaseY: 0.1,
+      barColor: 0x1a1a24,
+      domeHeight: 1.5,
+      domeRibs: 16,
+      ringColor: 0x2a2a38,
+      baseColor: 0x0e0a18,
+      neonColors: [0xff2e88, 0xff5fd0],
+      // Tâm quả cầu disco (bán kính/tốc độ quay vẫn ở CONFIG.discoBall);
+      // đáy cầu (~3.65m) cao hơn đỉnh santo của dancer (~3.45m).
+      ballY: 4.2,
+    },
+    lasers: {
+      colors: [0xff2e88, 0x00e5ff, 0x7c4dff],
+      baseOpacity: 0.12,
+      beatOpacityBoost: 0.1,
+    },
+    ledWall: {
+      updateSeconds: 0.12,
+      canvasWidth: 512,
+      canvasHeight: 256,
+    },
+    floorGloss: {
+      color: 0x140830,
+      specular: 0x7a4dff,
+      shininess: 80,
+    },
+  },
+
   // DJ booth (trái) + khu VIP / bục (phải) + quầy bar phía sau.
   // Bàn DJ sau lưng (giữa): top donor đứng chơi DJ ở đây (CONFIG.djTable).
   stage: {

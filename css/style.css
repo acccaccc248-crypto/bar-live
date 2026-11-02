@@ -24,7 +24,7 @@ html, body {
   height: 100%;
 }
 
-/* Thương hiệu nhỏ góc trái trên — không che sàn. */
+/* Thương hiệu nhỏ góc trái trên — không che sàn. Tông tím/magenta theo phòng mới. */
 #brand {
   position: fixed;
   top: 10px;
@@ -33,7 +33,7 @@ html, body {
   font-weight: 800;
   font-size: clamp(14px, 2.2vw, 20px);
   letter-spacing: 0.12em;
-  text-shadow: 0 0 12px rgba(255, 46, 136, 0.9), 0 2px 4px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 0 12px rgba(255, 46, 136, 0.9), 0 0 22px rgba(124, 77, 255, 0.7), 0 2px 4px rgba(0, 0, 0, 0.8);
   pointer-events: none;
 }
 
@@ -52,8 +52,8 @@ html, body {
   right: 10px;
   z-index: 10;
   width: min(220px, 30vw);
-  background: rgba(10, 5, 28, 0.72);
-  border: 1px solid rgba(255, 230, 0, 0.35);
+  background: rgba(26, 8, 51, 0.72);
+  border: 1px solid rgba(255, 46, 136, 0.45);
   border-radius: 12px;
   padding: 8px 10px;
   backdrop-filter: blur(4px);
@@ -63,7 +63,7 @@ html, body {
   margin: 0 0 6px;
   font-size: 12px;
   letter-spacing: 0.1em;
-  color: #ffe600;
+  color: #ff5fd0;
 }
 
 .top-row {
@@ -75,7 +75,7 @@ html, body {
 }
 
 .top-row.top-first {
-  color: #ffe600;
+  color: #ff5fd0;
   font-weight: 700;
 }
 
@@ -92,8 +92,8 @@ html, body {
   right: 10px;
   z-index: 10;
   width: min(220px, 30vw);
-  background: rgba(10, 5, 28, 0.72);
-  border: 1px solid rgba(0, 229, 255, 0.35);
+  background: rgba(26, 8, 51, 0.72);
+  border: 1px solid rgba(124, 77, 255, 0.45);
   border-radius: 12px;
   padding: 8px 10px;
   backdrop-filter: blur(4px);
@@ -104,7 +104,7 @@ html, body {
   margin: 0 0 4px;
   font-size: 11px;
   letter-spacing: 0.08em;
-  color: #00e5ff;
+  color: #c77dff;
 }
 
 #help-board h2:not(:first-child) {
@@ -119,7 +119,7 @@ html, body {
 }
 
 #help-board li b {
-  color: #ffe600;
+  color: #ff5fd0;
 }
 
 /* Ticker sự kiện nhỏ góc trái dưới. */
@@ -136,7 +136,8 @@ html, body {
 }
 
 .ticker-item {
-  background: rgba(10, 5, 28, 0.72);
+  background: rgba(26, 8, 51, 0.78);
+  border: 1px solid rgba(255, 46, 136, 0.3);
   border-radius: 999px;
   padding: 5px 12px;
   font-size: 13px;
@@ -163,8 +164,8 @@ html, body {
 }
 
 #controls button {
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(10, 5, 28, 0.8);
+  border: 1px solid rgba(255, 95, 208, 0.4);
+  background: rgba(26, 8, 51, 0.8);
   color: #fff;
   border-radius: 999px;
   padding: 7px 12px;
@@ -228,6 +229,7 @@ html, body {
   margin: 0;
   font-size: clamp(26px, 5vw, 44px);
   letter-spacing: 0.1em;
+  text-shadow: 0 0 18px rgba(255, 46, 136, 0.8), 0 0 32px rgba(124, 77, 255, 0.6);
 }
 
 #start-overlay p {
@@ -244,8 +246,9 @@ html, body {
   padding: 14px 34px;
   font-size: 18px;
   font-weight: 800;
-  color: #1a0533;
-  background: linear-gradient(90deg, #ff2e88, #ffe600);
+  color: #fff;
+  background: linear-gradient(90deg, #ff2e88, #7c4dff);
+  box-shadow: 0 0 22px rgba(255, 46, 136, 0.55);
   cursor: pointer;
 }
 

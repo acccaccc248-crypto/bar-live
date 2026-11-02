@@ -224,17 +224,20 @@ export const CONFIG = {
     // hardcode tọa độ sàn ở đây.
     wander: {
       // Tốc độ đi dạo (m/giây) — chậm như đi dạo, không chạy.
-      speed: 0.35,
+      // Bớt đi vòng vòng (user lệnh 00:05): chậm lại ~một nửa, đi
+      // thẳng lâu hơn, quẹo nhẹ hơn — nhảy tại chỗ là chính, thỉnh
+      // thoảng mới trôi chỗ khác.
+      speed: 0.18,
       // Mỗi dancer nhanh/chậm hơn tốc độ chuẩn ±tỉ lệ này (cố định lúc
       // tạo, để không ai giống ai).
       speedVariation: 0.15,
       // Tốc độ đổi hướng tối đa (rad/giây) — quay mềm, không quay ngoắt.
-      turnRate: 1.4,
+      turnRate: 0.9,
       // Đổi hướng ngẫu nhiên sau mỗi khoảng này (giây), lệch pha riêng.
-      retargetSecondsMin: 3,
-      retargetSecondsMax: 6,
+      retargetSecondsMin: 7,
+      retargetSecondsMax: 12,
       // Góc đổi hướng ngẫu nhiên tối đa mỗi lần (±radian quanh hướng cũ).
-      retargetMaxTurn: 1.4,
+      retargetMaxTurn: 0.7,
       // Khoảng cách tối thiểu giữa 2 dancer (m) — không chồng lấn nhau.
       minSeparation: 0.7,
       // Lề trong của sàn: không đi sát mép sàn quá lề này.

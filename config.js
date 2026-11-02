@@ -470,7 +470,11 @@ export const CONFIG = {
       { src: 'audio/india-205.mp3', title: 'India', artist: 'Arulo', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 128.0, bars: 32, gain: 1, hot: true },
       { src: 'audio/infected-mushroom-vibes-136.mp3', title: 'Infected Mushroom Vibes', artist: 'Alejandro Magaña', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 145.0, bars: 32, gain: 1, hot: true },
       { src: 'audio/house-02-744.mp3', title: 'House 02', artist: 'Lily J', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 123.0, bars: 32, gain: 1, hot: true },
-      { src: 'audio/dance-like-theres-no-tomorrow-1095.mp3', title: "Dance Like There's No Tomorrow", artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 126.1, bars: 32, gain: 1, hot: false },
+      { src: 'audio/golden-storm-470.mp3', title: 'Golden Storm', artist: 'Diego Nava', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 127.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/expressive-courage-468.mp3', title: 'Expressive Courage', artist: 'Diego Nava', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 127.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/lets-move-836.mp3', title: "Let's Move", artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 120.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/hard-techno-197.mp3', title: 'Hard Techno', artist: 'Arulo', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 120.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/trance-party-166.mp3', title: 'Trance Party', artist: 'Alejandro Magaña', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 136.0, bars: 32, gain: 1, hot: true },
     ],
     // Hàng đợi đẩy liên tục: trộn thứ tự, track hot lên trước, crossfade
     // đúng ranh giới bar khi chuyển track, hết vòng thì trộn lại.

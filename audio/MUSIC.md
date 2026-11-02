@@ -2,8 +2,9 @@
 
 Sở hữu: agent nhạc DJ. Mọi ngưỡng nhạc nằm trong `CONFIG.music` (`../config.js`);
 `js/audio.js` không hardcode BPM, pattern hay âm lượng. Cập nhật lần cuối:
-02/11/2026 — đợt 3: xoay catalog lên 10 track (4 track mới năng lượng cao,
-loại 3 track cũ ít năng lượng nhất).
+03/11/2026 — đợt 4 (refresh định kỳ): thêm 5 track mới năng lượng cao,
+xoay loại 1 track không-hot cũ (Dance Like There's No Tomorrow) để giữ
+tổng < 10 MB, giữ nguyên toàn bộ track hot + Dance Away.
 
 ## 1. "Nhạc hot" nghĩa là gì cho sàn này — và ranh giới bản quyền
 
@@ -76,7 +77,7 @@ cháy theo BPM của chính track đang chạy (beat timer riêng, xem mục 4).
 `music.onSectionChange = (sectionId) => {...}` báo khi đổi đoạn synth.
 `music.currentSectionId` đọc đoạn hiện tại.
 
-## 3. Track file — catalog 10 track (Mixkit Free License)
+## 3. Track file — catalog 14 track (Mixkit Free License)
 
 Chế độ mặc định là `file` (`CONFIG.music.defaultMode: 'file'`): mở trang,
 bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết track nạp
@@ -93,11 +94,42 @@ bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết tr
 | 7 | India — Arulo | 128.0 | 32 bar, từ 30.41s | 721 KB | ★ |
 | 8 | Infected Mushroom Vibes — Alejandro Magaña | 145.0 | 32 bar, từ 31.66s | 636 KB | ★ |
 | 9 | House 02 — Lily J | 123.0 | 32 bar, từ 15.61s | 750 KB | ★ |
-| 10 | Dance Like There's No Tomorrow — Michael Ramir C | 126.1 | 32 bar, từ 76.19s | 732 KB | |
+| 10 | Golden Storm — Diego Nava | 127.0 | 32 bar, từ 15.53s | 726 KB | ★ |
+| 11 | Expressive Courage — Diego Nava | 127.0 | 32 bar, từ 28.76s | 726 KB | ★ |
+| 12 | Let's Move — Michael Ramir C | 120.0 | 32 bar, từ 31.97s | 768 KB | ★ |
+| 13 | Hard Techno — Arulo | 120.0 | 32 bar, từ 15.99s | 768 KB | ★ |
+| 14 | Trance Party — Alejandro Magaña | 136.0 | 32 bar, từ 28.64s | 679 KB | ★ |
 
-Tổng: 10 file, 6,77 MB (< 10 MB ngân sách). File: `audio/<slug>-<mixkit-id>.mp3`
+Tổng: 14 file, 9,57 MiB (< 10 MiB ngân sách). File: `audio/<slug>-<mixkit-id>.mp3`
 (MP3 96 kbps, 44,1 kHz stereo). Mỗi entry trong `CONFIG.music.tracks`:
 `{ src, title, artist, license, licenseUrl, bpm, bars, gain, hot }`.
+
+**Đợt 4 (03/11/2026, refresh định kỳ theo lệnh "cập nhật nghiên cứu liên
+tục"):** quét 95 track Mixkit qua các danh mục dance/edm/house/electronic/
+workout/party/deep-house/drum-and-bass/trance (JSON-LD trang danh mục),
+tải 22 ứng viên, đo BPM 2 phương pháp + grid-search như đợt 2/3. 7 track
+đạt chuẩn đồng thuận (BPM 120–136, lưới beat giữ vững sau cắt): 5 đưa
+vào catalog — Golden Storm (127.0, grid 3.28), Expressive Courage (127.0,
+grid 3.49), Let's Move (120.0, grid 3.19), Hard Techno (120.0, grid 3.82 —
+ổn định nhất, độ lệch RMS theo bar chỉ 0,004), Trance Party (136.0, grid
+3.04). Xoay loại track không-hot duy nhất (Dance Like There's No Tomorrow,
+732 KB) để giữ ngân sách; toàn bộ track hot + Dance Away giữ nguyên.
+2 track đạt chuẩn còn lại làm dự bị cho đợt xoay sau (đã cắt + kiểm chứng
+xong, chưa đưa vào repo): House Vibez — Lily J (122.0, grid 3.0) và Night
+Terrors — Arulo (130.0, grid 3.47, cửa sổ có 1 bar breakdown nên xếp sau).
+Loại ở vòng đo: Deep Techno (116.0, dưới chuẩn 118), Infected Vibes (grid
+yếu 1.27), Techno Fights / Electro Dreams / Swish Swed (2 phương pháp
+không đồng thuận), Rising Sun (93.3, ngoài dải), Friday Routine (cửa sổ
+32 bar RMS chỉ 0,154 — yếu hẳn so với nhóm 0,32–0,38). Không tìm được
+track nào có tiếng đám đông (hò hét/vỗ tay) trong catalog Mixkit; đã
+kiểm tra lại FMA (chỉ chiptune CC0, không phải nhạc DJ) và Incompetech
+(không có track DJ kiểu festival, bản full trả phí) — không dùng nguồn
+ngoài danh sách §6, không nhạc thương mại, không YouTube rip. **Lưu ý
+chạy song song:** trong lúc làm đợt 4, một agent nhạc khác (đợt 5, lệnh
+trực tiếp của sếp 00:15–00:19) cũng đang tải/đo track trong `/tmp/dj5`
+— đợt 4 dùng scratch riêng, kiểm chứng remote chưa có push mới trước
+khi đẩy; nếu đợt 5 đẩy trùng track thì coordinator cần gộp, tránh trùng
+lặp trong catalog.
 
 **Đợt 3 (02/11/2026, lệnh user "cho mấy nhạc Việt DJ hay hay"):** quét
 20 ứng viên Mixkit mới (dance/edm/house/electronic/workout), đo BPM 2
@@ -238,7 +270,7 @@ hay lặp 1 list cũ. Agent nhạc (hoặc người phụ trách) làm mỗi tu�
 
 | Nguồn | Giấy phép | Kết quả 02/11/2026 |
 |---|---|---|
-| Mixkit | Mixkit Free License — thương mại được, không cần ghi công | **Dùng được.** Trang danh mục render server, lộ link MP3 trực tiếp (cần `curl -L` theo redirect 301). 12 ứng viên tải về, 9 vào catalog, 3 loại (BPM không chắc / năng lượng yếu). |
+| Mixkit | Mixkit Free License — thương mại được, không cần ghi công | **Dùng được.** Trang danh mục render server, lộ link MP3 trực tiếp (cần `curl -L` theo redirect 301). 12 ứng viên tải về, 9 vào catalog, 3 loại (BPM không chắc / năng lượng yếu). Đợt 4 (03/11): quét 95 track, 22 ứng viên, 5 vào catalog, 2 dự bị. |
 | Pixabay Music | Pixabay Content License | Tên miền bị chặn ở tầng fetch — không thử lại, không vòng tránh. |
 | Looperman / Freesound | Từng track (có CC0) | Tải file **đòi đăng nhập** → bỏ qua theo lệnh cấm tạo tài khoản. |
 | Archive.org (netlabel) | Lẫn lộn, đa số CC BY-NC/ND | BY-NC/ND không dùng được cho live có quà tặng (thương mại) và cấm phái sinh (cắt file) → bỏ qua, không tải. |

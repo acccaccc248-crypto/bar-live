@@ -421,9 +421,10 @@ export const CONFIG = {
       { src: 'audio/techno-fest-feel-125.mp3', title: 'Techno Fest Feel', artist: 'Alejandro Magaña', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 126.0, bars: 32, gain: 1, hot: true },
       { src: 'audio/dance-zero-740.mp3', title: 'Dance Zero', artist: 'Lily J', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 123.9, bars: 32, gain: 1, hot: true },
       { src: 'audio/dance-away-781.mp3', title: 'Dance Away', artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 149.9, bars: 32, gain: 1, hot: true },
-      { src: 'audio/house-vibes-129.mp3', title: 'House Vibes', artist: 'Alejandro Magaña', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 119.9, bars: 32, gain: 1, hot: false },
-      { src: 'audio/a-game-777.mp3', title: 'A Game', artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 127.9, bars: 32, gain: 1, hot: false },
-      { src: 'audio/karma-1183.mp3', title: 'Karma', artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 127.9, bars: 32, gain: 1, hot: false },
+      { src: 'audio/positive-energy-973.mp3', title: 'Positive Energy', artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 135.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/india-205.mp3', title: 'India', artist: 'Arulo', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 128.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/infected-mushroom-vibes-136.mp3', title: 'Infected Mushroom Vibes', artist: 'Alejandro Magaña', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 145.0, bars: 32, gain: 1, hot: true },
+      { src: 'audio/house-02-744.mp3', title: 'House 02', artist: 'Lily J', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 123.0, bars: 32, gain: 1, hot: true },
       { src: 'audio/dance-like-theres-no-tomorrow-1095.mp3', title: "Dance Like There's No Tomorrow", artist: 'Michael Ramir C', license: 'Mixkit Free License', licenseUrl: 'https://mixkit.co/license/', bpm: 126.1, bars: 32, gain: 1, hot: false },
     ],
     // Hàng đợi đẩy liên tục: trộn thứ tự, track hot lên trước, crossfade

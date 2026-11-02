@@ -2,7 +2,8 @@
 
 Sở hữu: agent nhạc DJ. Mọi ngưỡng nhạc nằm trong `CONFIG.music` (`../config.js`);
 `js/audio.js` không hardcode BPM, pattern hay âm lượng. Cập nhật lần cuối:
-02/11/2026 — đợt 2: 9 track file + hệ đẩy nhạc liên tục.
+02/11/2026 — đợt 3: xoay catalog lên 10 track (4 track mới năng lượng cao,
+loại 3 track cũ ít năng lượng nhất).
 
 ## 1. "Nhạc hot" nghĩa là gì cho sàn này — và ranh giới bản quyền
 
@@ -75,7 +76,7 @@ cháy theo BPM của chính track đang chạy (beat timer riêng, xem mục 4).
 `music.onSectionChange = (sectionId) => {...}` báo khi đổi đoạn synth.
 `music.currentSectionId` đọc đoạn hiện tại.
 
-## 3. Track file — catalog 9 track (Mixkit Free License)
+## 3. Track file — catalog 10 track (Mixkit Free License)
 
 Chế độ mặc định là `file` (`CONFIG.music.defaultMode: 'file'`): mở trang,
 bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết track nạp
@@ -88,14 +89,42 @@ bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết tr
 | 3 | Techno Fest Feel — Alejandro Magaña | 126.0 | 32 bar, từ 30.48s | 732 KB | ★ |
 | 4 | Dance Zero — Lily J | 123.9 | 32 bar, từ 19.37s | 745 KB | ★ |
 | 5 | Dance Away — Michael Ramir C | 149.9 | 32 bar, từ 5.15s | 616 KB | ★ |
-| 6 | House Vibes — Alejandro Magaña | 119.9 | 32 bar, từ 32.09s | 770 KB | |
-| 7 | A Game — Michael Ramir C | 127.9 | 32 bar, từ 15.42s | 721 KB | |
-| 8 | Karma — Michael Ramir C | 127.9 | 32 bar, từ 7.92s | 721 KB | |
-| 9 | Dance Like There's No Tomorrow — Michael Ramir C | 126.1 | 32 bar, từ 76.19s | 732 KB | |
+| 6 | Positive Energy — Michael Ramir C | 135.0 | 32 bar, từ 7.50s | 683 KB | ★ |
+| 7 | India — Arulo | 128.0 | 32 bar, từ 30.41s | 721 KB | ★ |
+| 8 | Infected Mushroom Vibes — Alejandro Magaña | 145.0 | 32 bar, từ 31.66s | 636 KB | ★ |
+| 9 | House 02 — Lily J | 123.0 | 32 bar, từ 15.61s | 750 KB | ★ |
+| 10 | Dance Like There's No Tomorrow — Michael Ramir C | 126.1 | 32 bar, từ 76.19s | 732 KB | |
 
-Tổng: 9 file, 6,22 MB (< 10 MB ngân sách). File: `audio/<slug>-<mixkit-id>.mp3`
+Tổng: 10 file, 6,77 MB (< 10 MB ngân sách). File: `audio/<slug>-<mixkit-id>.mp3`
 (MP3 96 kbps, 44,1 kHz stereo). Mỗi entry trong `CONFIG.music.tracks`:
 `{ src, title, artist, license, licenseUrl, bpm, bars, gain, hot }`.
+
+**Đợt 3 (02/11/2026, lệnh user "cho mấy nhạc Việt DJ hay hay"):** quét
+20 ứng viên Mixkit mới (dance/edm/house/electronic/workout), đo BPM 2
+phương pháp + grid-search như đợt 2. Pipeline hiệu chuẩn lại trên 9
+track cũ: đo lại khớp ±0,2 BPM. Chọn 4 track mới (cả 4 đều 2 phương pháp
+đồng thuận, lưới beat giữ vững sau cắt): Positive Energy (135.0, grid
+4.48 — mạnh nhất), India (128.0, grid 3.89, hơi hướng Đông phương),
+Infected Mushroom Vibes (145.0 — BPM cao nhất catalog sau Dance Away),
+House 02 (123.0, ổn định nhất, conf 0.88/0.96). Loại 3 track cũ ít năng
+lượng nhất theo RMS file đã cắt: A Game (0.294), House Vibes (0.332),
+Karma (0.354) — giữ Dance Like There's No Tomorrow (RMS 0.378, cao nhất
+nhóm không-hot) và toàn bộ track hot + Dance Away. Loại thêm ở vòng
+sơ tuyển: Asian Clown (tag "asian" duy nhất của Mixkit — hip-hop,
+2 phương pháp đo lệch 99/129, grid yếu 1.14), Drum and Bass Vibes
+(172/118 lệch nhau, ngoài dải BPM), One More Dance (109.9 BPM, dưới
+chuẩn), Kraft Twerk (2 phương pháp lệch 118/162, không chắc chắn).
+
+**Trả lời thẳng về "nhạc Việt": KHÔNG tìm được track nhạc Việt hợp pháp
+nào.** Đã kiểm tra: tag `vietnam`/`k-pop`/`bollywood` trên Mixkit = 0
+track; tag `asian` = 1 track duy nhất (Asian Clown, hip-hop, groove
+không đều, đã loại); tìm kiếm Free Music Archive chỉ ra nhạc chiptune
+8-bit CC0 (Komiku), không phải nhạc DJ và không liên quan Việt Nam;
+Incompetech là nhạc Kevin MacLeod, không có nhạc Việt. Nhạc Vinahouse/
+Vietmix thật đều là remix nhạc trẻ Việt có bản quyền — không tải, không
+dùng. Catalog đợt 3 vì vậy là track EDM/techno/trance năng lượng cao
+gần gu nhất (BPM 123–150, kick 4 nhịp dồn, drop rõ), trong đó "India"
+có màu sắc giai điệu phương Đông gần gu châu Á nhất.
 
 ### Cách cắt + kiểm chứng (làm ngày 02/11/2026, không đoán)
 

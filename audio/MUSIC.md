@@ -2,9 +2,10 @@
 
 Sở hữu: agent nhạc DJ. Mọi ngưỡng nhạc nằm trong `CONFIG.music` (`../config.js`);
 `js/audio.js` không hardcode BPM, pattern hay âm lượng. Cập nhật lần cuối:
-03/11/2026 — đợt 6: sếp duyệt nâng trần từ 10 MB lên 15 MB, thêm 6 track
-mới (Feast From The East + 5 track quét mới), giữ nguyên toàn bộ 14 track
-cũ, tổng 20 track / 13,92 MiB, vòng playlist ~20 phút.
+03/11/2026 — đợt 8: sếp lệnh tải mix YouTube NST 1H Top Nhạc Hot TikTok
+2K26 qua cobalt, boost bass cực mạnh, XÓA HẾT 20 track Mixkit cũ —
+catalog chỉ còn 1 track duy nhất, 0,60 MiB, vòng lặp 32 bar (~52 giây,
+lặp lại liên tục cho tới khi sếp đổi lệnh).
 
 ## 1. "Nhạc hot" nghĩa là gì cho sàn này — và ranh giới bản quyền
 
@@ -77,7 +78,7 @@ cháy theo BPM của chính track đang chạy (beat timer riêng, xem mục 4).
 `music.onSectionChange = (sectionId) => {...}` báo khi đổi đoạn synth.
 `music.currentSectionId` đọc đoạn hiện tại.
 
-## 3. Track file — catalog 20 track (Mixkit Free License)
+## 3. Track file — catalog 1 track (YouTube qua cobalt, sếp chịu rủi ro)
 
 Chế độ mặc định là `file` (`CONFIG.music.defaultMode: 'file'`): mở trang,
 bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết track nạp
@@ -85,31 +86,39 @@ bấm Bắt đầu là playlist chạy. Track lỗi thì bị bỏ qua; hết tr
 
 | # | Track — Nghệ sĩ | BPM đo | Đoạn cắt | Dung lượng | Hot |
 |---|---|---|---|---|---|
-| 1 | House Fest — Alejandro Magaña | 124.0 | 32 bar, từ 46.45s | 744 KB | ★ |
-| 2 | Techno Fest Vibes — Alejandro Magaña | 124.0 | 32 bar, từ 15.48s | 744 KB | ★ |
-| 3 | Techno Fest Feel — Alejandro Magaña | 126.0 | 32 bar, từ 30.48s | 732 KB | ★ |
-| 4 | Dance Zero — Lily J | 123.9 | 32 bar, từ 19.37s | 745 KB | ★ |
-| 5 | Dance Away — Michael Ramir C | 149.9 | 32 bar, từ 5.15s | 616 KB | ★ |
-| 6 | House Vibez — Lily J | 122.0 | 32 bar, từ 31.48s | 738 KB | ★ |
-| 7 | Night Terrors — Arulo | 130.0 | 32 bar, từ 27.69s | 693 KB | ★ |
-| 8 | Infected Mushroom Vibes — Alejandro Magaña | 145.0 | 32 bar, từ 31.66s | 636 KB | ★ |
-| 9 | House 02 — Lily J | 123.0 | 32 bar, từ 15.61s | 750 KB | ★ |
-| 10 | Golden Storm — Diego Nava | 127.0 | 32 bar, từ 15.53s | 726 KB | ★ |
-| 11 | Expressive Courage — Diego Nava | 127.0 | 32 bar, từ 28.76s | 726 KB | ★ |
-| 12 | Let's Move — Michael Ramir C | 120.0 | 32 bar, từ 31.97s | 768 KB | ★ |
-| 13 | Hard Techno — Arulo | 120.0 | 32 bar, từ 15.99s | 768 KB | ★ |
-| 14 | Trance Party — Alejandro Magaña | 136.0 | 32 bar, từ 28.64s | 679 KB | ★ |
-| 15 | Feast From The East — Michael Ramir C | 123.0 | 32 bar, từ 33.17s | 750 KB | ★ |
-| 16 | Slow Trance Morning — Alejandro Magaña | 124.0 | 32 bar, từ 9.68s | 744 KB | ★ |
-| 17 | Deep Techno Ambience — Alejandro Magaña | 124.9 | 32 bar, từ 34.59s | 739 KB | ★ |
-| 18 | Talent in the Air — Diego Nava | 121.9 | 32 bar, từ 31.50s | 757 KB | ★ |
-| 19 | Getting Older — Diego Nava | 122.9 | 32 bar, từ 31.26s | 751 KB | ★ |
-| 20 | Razor Edge — Michael Ramir C | 122.0 | 32 bar, từ 39.34s | 756 KB | ★ |
+| 1 | NST 1H Top Nhạc Hot TikTok 2K26 — Anh Kiet Organ | 146.5 | 32 bar, từ 2971.74s, bass cực mạnh | 630 KB | ★ |
 
-Tổng: 20 file, 13,92 MiB (< 15 MiB ngân sách — sếp duyệt nâng trần ngày
-03/11/2026). File: `audio/<slug>-<mixkit-id>.mp3`
-(MP3 96 kbps, 44,1 kHz stereo). Mỗi entry trong `CONFIG.music.tracks`:
+Tổng: 1 file duy nhất, 0,60 MiB. 20 track Mixkit cũ (13,92 MiB) đã xóa
+khỏi repo theo lệnh trực tiếp của sếp 01:25 03/11/2026 ("xoá hết mấy bản
+kia đi") — khôi phục được qua git (commit 51b5c71). File mới:
+`audio/nst-top-nhac-hot-tiktok-2k26.mp3` (MP3 96 kbps, 44,1 kHz stereo). Mỗi entry trong `CONFIG.music.tracks`:
 `{ src, title, artist, license, licenseUrl, bpm, bars, gain, hot }`.
+
+**Đợt 8 (03/11/2026, lệnh trực tiếp của sếp 01:25–01:31: tải mix
+YouTube qua "trang khác", boost bass cực mạnh, xóa hết bản cũ, cho nghe
+thử).** Đợt 7 thất bại ở bước tải (API cobalt công khai đòi JWT sau
+Turnstile). Đợt 8 thử 4 instance cobalt cộng đồng (danh sách từ commit
+tham khảo, không đăng nhập/cookie/giả lập): squair.xyz timeout; lime +
+nuko-c đòi JWT; **api.cobalt.liubquanti.click trả tunnel 200** — tải về
+170.881.134 byte, MP3 320 kbps, thời lượng 4272s (71 phút, đúng mix 1H),
+tên file tunnel khớp tiêu đề video. Quét 7 đoạn 3 phút dọc mix: 2 phương
+pháp đều cho 143,6 BPM (lượng tử hóa lag), grid-search khóa ở 145,1–
+146,6; cắt thử 3 cửa sổ, lưới giữ vững trên file cắt ở 146,5 (score
+2,78/2,69) — ghi BPM 146,5. Chọn cửa sổ năng lượng cao nhất có lưới
+khỏe: từ 2971,74s, 32 bar = 52,42s, RMS 0,486. **Bass cực mạnh:** lowshelf
++10 dB @120 Hz + lowshelf +6 dB @55 Hz, rồi normalize + limiter về
+−1 dBFS (đích tiền mã hóa −2 dB để trừ overshoot MP3): peak file cuối
+0,890, không clip; bass-vs-mid +6,3 dB so với đoạn gốc (bass −8,6 dBFS
+giữ nguyên độ lớn tuyệt đối, mid −23,5 dBFS). Kiểm chứng trên file
+cuối: đúng 32 bar ±0,01s, grid 146,6 score 2,30 giữ tới bar cuối, MD5
+khác mọi file cũ. **Giấy phép: KHÔNG xác minh** — nhạc remix TikTok có
+bản quyền, tải qua cobalt theo lệnh sếp, sếp chịu rủi ro (cùng nhóm với
+2 bản Vinahouse 23:44). Không ghi nhận tiếng đám đông (heuristic phổ
+không đạt ngưỡng). 20 track Mixkit cũ xóa khỏi repo + config; catalog
+chỉ còn 1 track. **Lưu ý:** lịch refresh tuần `bar-live-music-refresh`
+vẫn ghi trần 15 MB — lần chạy thứ Hai 09/11 sẽ thêm track Mixkit trở
+lại nếu sếp không đổi lệnh. Scratch: `~/workspace/dj8-scratch/`
+(persistent — `/tmp` từng bị xóa sau restart).
 
 **Đợt 6 (03/11/2026, lệnh trực tiếp của sếp 00:39: nâng trần từ 10 MiB
 lên 15 MiB, thêm track tới ~20–21 track, vòng ~20 phút).** Ưu tiên 2

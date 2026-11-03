@@ -94,6 +94,16 @@ kia đi") — khôi phục được qua git (commit 51b5c71). File mới:
 `audio/nst-top-nhac-hot-tiktok-2k26.mp3` (MP3 96 kbps, 44,1 kHz stereo). Mỗi entry trong `CONFIG.music.tracks`:
 `{ src, title, artist, license, licenseUrl, bpm, bars, gain, hot }`.
 
+**Đợt 8b (03/11/2026, lệnh sếp 09:49: bass căng quá, giảm lại xíu).** Cắt lại
+đúng đoạn cũ (2971,74s, 32 bar = 52,42s, 146,5 BPM) từ `source.mp3` trong
+`~/workspace/dj8-scratch/`, shelf giảm một nửa: lowshelf +5 dB @120 Hz +
+lowshelf +3 dB @55 Hz (trước +10/+6), normalize + limiter như cũ (đích
+tiền mã hóa −2,3 dB để peak cuối ≤ −1 dB). File cuối: peak 0,841, không
+clip; bass 30–150 Hz −11,2 dBFS (bản cũ −8,6), mid 500–4000 Hz −23,3 dBFS
+(bản cũ −23,5) — bass giảm 2,6 dB đo được, mid giữ nguyên. MD5 mới
+`93d2879aed0a`, cùng tên file/cỡ 629.997 byte; giấy phép vẫn chưa xác minh
+như đợt 8.
+
 **Đợt 8 (03/11/2026, lệnh trực tiếp của sếp 01:25–01:31: tải mix
 YouTube qua "trang khác", boost bass cực mạnh, xóa hết bản cũ, cho nghe
 thử).** Đợt 7 thất bại ở bước tải (API cobalt công khai đòi JWT sau

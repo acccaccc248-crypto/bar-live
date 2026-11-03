@@ -174,15 +174,15 @@ export const CONFIG = {
   },
 
   // Dancer: figure primitive, giới hạn số lượng cho máy yếu.
-  // Nhân vật nhỏ lại (scale 0.8, user lệnh 22:14; thu còn 0.72 lệnh
-  // 07:02; 0.69 lệnh 07:09; về 0.65, user lệnh 07:12) để đông người
-  // không che hết sàn; tối đa 12 dancer (lưới 3 hàng × 4 cột).
+  // Nhân vật nhỏ lại (scale 0.8, user lệnh 22:14; 0.72 lệnh 07:02;
+  // 0.69 lệnh 07:09; 0.65 lệnh 07:12; về 0.60, user lệnh 07:18) để
+  // đông người không che hết sàn; tối đa 12 dancer (lưới 3 hàng × 4 cột).
   dancers: {
     maxDancers: 12,
     // Hệ số thu nhỏ toàn bộ dancer (nhân vào group.scale). Giữ nguyên
     // tỉ lệ chibi; tên + avatar trên đầu theo đúng chiều cao đầu mới
     // vì chúng là con của group (cùng scale).
-    scale: 0.65,
+    scale: 0.6,
     bobAmplitude: 0.09,
     jumpAmplitude: 0.55,
     armSwingAmplitude: 0.9,

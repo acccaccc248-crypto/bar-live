@@ -62,8 +62,9 @@ export function sampleRootYCurve(curve, time) {
 }
 
 // Làm nổi bật mẫu nữ GLB (user lệnh 06:13): da sáng hơn chút, đồ diễn
-// (bikini từ 06:47, trước đó là sportsuit) có emissive tím nhẹ theo
-// texture (viền neon), tóc VÀNG có highlight vàng óng — nổi nhưng không
+// (bikini từ 06:47, trước đó là sportsuit) có emissive HỒNG cùng màu
+// nền bikini (user lệnh 07:02: bikini phải hồng — emissive tím cũ làm
+// nó ngả tím dưới đèn), tóc VÀNG có highlight vàng óng — nổi nhưng không
 // lòe loẹt, không cháy sáng. Spotlight riêng trong scene.js làm phần
 // còn lại. Export để harness kiểm chứng được.
 export function brightenPoleModelMaterials(modelRoot) {
@@ -73,7 +74,7 @@ export function brightenPoleModelMaterials(modelRoot) {
     for (const m of mats) {
       if (!m || !m.isMeshStandardMaterial) continue;
       if (m.name.includes('bikini') || m.name.includes('sportsuit')) {
-        m.emissive = new THREE.Color(0x8a2be2);
+        m.emissive = new THREE.Color(0xff2e88);
         if (m.map) m.emissiveMap = m.map;
         m.emissiveIntensity = 0.3;
       } else if (m.name.includes('long01')) {

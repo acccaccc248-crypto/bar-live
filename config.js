@@ -464,6 +464,31 @@ export const CONFIG = {
       cageKeepOutMargin: 0.35,
       // Bán kính nhìn trước khi tránh tường/vật cản (m).
       lookAhead: 0.5,
+      // Đi vòng quanh lồng sắt (user lệnh 09:12 03/11: "đi vòng vòng
+      // lòng sắt, đi chậm thôi, lâu lâu mới đi"): thỉnh thoảng một
+      // dancer rời đi dạo ngẫu nhiên, đi CHẬM một cung ellipse quanh
+      // tâm lồng rồi về lại đi dạo thường — vẫn nhảy theo nhạc suốt
+      // lúc đi. Ellipse ôm ngoài đĩa cấm lồng (nan 1,4m + đệm 0,35m =
+      // 1,75m) và trong vùng sàn (mép trước z ≤ 2,21m): bán kính
+      // ngang 2,7m, bán kính dọc 1,8m quanh tâm lồng (0, 0,4).
+      cageOrbit: {
+        enabled: true,
+        radiusX: 2.7,
+        radiusZ: 1.8,
+        // Tốc độ dài CHẬM (m/giây) — chậm hơn cả đi dạo (0,18).
+        speed: 0.15,
+        // Độ dài mỗi chuyến đi (radian quanh lồng): 70°–140°.
+        arcMin: 1.2,
+        arcMax: 2.4,
+        // Mỗi dancer nghỉ 40–90s giữa hai chuyến (lâu lâu mới đi),
+        // lệch pha ngẫu nhiên; sàn đầy cũng không thành đoàn diễu hành.
+        nextDelayMin: 40,
+        nextDelayMax: 90,
+        // Tối đa 2 người cùng đi vòng một lúc.
+        maxConcurrent: 2,
+        // Tốc độ trôi mềm vào đường vòng (/giây) — không nhảy cắt.
+        blendRate: 2.5,
+      },
     },
   },
 

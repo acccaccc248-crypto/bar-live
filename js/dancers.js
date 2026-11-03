@@ -1811,6 +1811,11 @@ export class DancerManager {
       wanderTargetHeading: 0,
       wanderSpeed: 0,
       wanderRetargetIn: 0,
+      // Đi vòng quanh lồng (CONFIG.dancers.wander.cageOrbit): trạng thái
+      // chuyến đi đang chạy (null = đang đi dạo thường) + mốc giờ tuyệt
+      // đối của chuyến kế (null = chưa hẹn, hẹn lười ở frame update đầu).
+      cageOrbit: null,
+      cageOrbitNextAt: null,
       stepOffset: 0,
       stepOffsetPrev: 0,
     };
@@ -2462,6 +2467,8 @@ export class DancerManager {
     dancer.wanderHeading = heading;
     dancer.wanderTargetHeading = heading;
     dancer.wanderRetargetIn = 1;
+    // Hủy chuyến đi vòng quanh lồng đang dở (nếu có): về đi dạo thường.
+    dancer.cageOrbit = null;
     dancer.stepOffset = 0;
     dancer.stepOffsetPrev = 0;
   }
@@ -2504,6 +2511,82 @@ export class DancerManager {
     }
     dancer.wanderHeading = turnToward(dancer.wanderHeading, desired, w.turnRate * dt);
     return dancer.wanderHeading;
+  }
+
+  // Đi vòng quanh lồng sắt (CONFIG.dancers.wander.cageOrbit, user lệnh
+  // 09:12 03/11: chậm, lâu lâu mới đi): chỉ chạy ở mode 'dance', khi
+  // không skill/duet. Trả về true khi dancer đang trong chuyến đi
+  // (vị trí + hướng mặt đã lo xong, caller bỏ qua đi dạo ngẫu nhiên);
+  // false khi đang đi dạo thường (chưa tới lượt hoặc đã hết chuyến).
+  // An toàn hình học: góc bắt đầu tính TỪ vị trí hiện tại quanh tâm
+  // lồng nên đường trôi vào ellipse gần như theo hướng tâm, không cắt
+  // qua đĩa cấm; ellipse nằm trong vùng sàn nên không cần kẹp thêm.
+  _updateCageOrbit(dancer, dt, time) {
+    const cfg = (CONFIG.dancers.wander || {}).cageOrbit;
+    if (!cfg || cfg.enabled === false) return false;
+    const cage = CONFIG.scene.cage;
+    const pos = dancer.group.position;
+    if (!dancer.cageOrbit) {
+      if (dancer.cageOrbitNextAt == null) {
+        dancer.cageOrbitNextAt = time + cfg.nextDelayMin
+          + Math.random() * (cfg.nextDelayMax - cfg.nextDelayMin);
+      }
+      if (time < dancer.cageOrbitNextAt) return false;
+      const orbiting = [...this.dancers.values()].filter(
+        (o) => o !== dancer && o.cageOrbit && o.mode === 'dance',
+      ).length;
+      if (orbiting >= (cfg.maxConcurrent || 2)) {
+        dancer.cageOrbitNextAt = time + 10 + Math.random() * 20;
+        return false;
+      }
+      // Chiều đi theo hướng đang đi (tích vô hướng với tiếp tuyến > 0
+      // thì cùng chiều) để khỏi quay ngoắt; cung ngẫu nhiên.
+      const angle = Math.atan2(pos.z - cage.centerZ, pos.x - cage.centerX);
+      const tx = -Math.sin(angle);
+      const tz = Math.cos(angle);
+      const hx = Math.sin(dancer.wanderHeading);
+      const hz = Math.cos(dancer.wanderHeading);
+      dancer.cageOrbit = {
+        angle,
+        dir: (hx * tx + hz * tz) >= 0 ? 1 : -1,
+        traveled: 0,
+        arc: cfg.arcMin + Math.random() * (cfg.arcMax - cfg.arcMin),
+      };
+    }
+    const st = dancer.cageOrbit;
+    const rx = cfg.radiusX;
+    const rz = cfg.radiusZ;
+    // Tốc độ góc = tốc độ dài / bán kính tức thời (ellipse không tròn).
+    const px = cage.centerX + Math.cos(st.angle) * rx;
+    const pz = cage.centerZ + Math.sin(st.angle) * rz;
+    const rNow = Math.max(0.5, Math.hypot(px - cage.centerX, pz - cage.centerZ));
+    const dAngle = (cfg.speed / rNow) * dt;
+    st.angle += st.dir * dAngle;
+    st.traveled += dAngle;
+    const targetX = cage.centerX + Math.cos(st.angle) * rx;
+    const targetZ = cage.centerZ + Math.sin(st.angle) * rz;
+    // Trôi mềm vào đường vòng (không nhảy cắt tới điểm đích).
+    const k = Math.min(1, dt * (cfg.blendRate || 2.5));
+    pos.x += (targetX - pos.x) * k;
+    pos.z += (targetZ - pos.z) * k;
+    // Hướng mặt theo tiếp tuyến ellipse: heading h ứng với hướng
+    // (sin h, cos h); tiếp tuyến = (-sin·rx, cos·rz) × chiều đi.
+    const tangentHeading = Math.atan2(
+      -Math.sin(st.angle) * rx * st.dir,
+      Math.cos(st.angle) * rz * st.dir,
+    );
+    const turnRate = (CONFIG.dancers.wander || {}).turnRate || 0.9;
+    dancer.wanderHeading = turnToward(dancer.wanderHeading, tangentHeading, turnRate * dt);
+    dancer.wanderTargetHeading = dancer.wanderHeading;
+    if (st.traveled >= st.arc) {
+      // Hết cung: về lại đi dạo thường từ chỗ đang đứng, đi thẳng một
+      // lúc rồi mới đổi hướng ngẫu nhiên; hẹn chuyến kế.
+      dancer.cageOrbit = null;
+      dancer.wanderRetargetIn = 3;
+      dancer.cageOrbitNextAt = time + cfg.nextDelayMin
+        + Math.random() * (cfg.nextDelayMax - cfg.nextDelayMin);
+    }
+    return true;
   }
 
   // Giữ khoảng cách tối thiểu giữa các dancer đang đi dạo (2 lượt nới
@@ -2813,10 +2896,14 @@ export class DancerManager {
         // theo bộ động tác thường.
         const duetting = !!dancer.duet;
         if (!frozen && !duetting && dancer.enterProgress >= 1) {
-          const heading = this._steerWander(dancer, dt);
-          group.position.x += Math.sin(heading) * dancer.wanderSpeed * dt;
-          group.position.z += Math.cos(heading) * dancer.wanderSpeed * dt;
-          this._clampToWander(dancer, this._wanderLimits());
+          // Đi vòng quanh lồng (chậm, lâu lâu mới đi) đè lên đi dạo
+          // ngẫu nhiên; đang trong chuyến đi thì bỏ qua _steerWander.
+          if (!this._updateCageOrbit(dancer, dt, time)) {
+            const heading = this._steerWander(dancer, dt);
+            group.position.x += Math.sin(heading) * dancer.wanderSpeed * dt;
+            group.position.z += Math.cos(heading) * dancer.wanderSpeed * dt;
+            this._clampToWander(dancer, this._wanderLimits());
+          }
         }
         if (!frozen && !duetting && dancer.enterProgress >= 1) {
           const sideX = Math.cos(dancer.wanderHeading);

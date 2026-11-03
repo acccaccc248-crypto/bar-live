@@ -260,7 +260,90 @@ check(
   'mọi dancer đều có tốc độ đi dạo > 0',
 );
 
+// ---- Pha 7: đi vòng quanh lồng (CONFIG.dancers.wander.cageOrbit,
+// user lệnh 09:12 03/11: chậm, lâu lâu mới đi) ----
+// Ép lịch đi dày lên trong harness (2–4s thay vì 40–90s) để chuyến đi
+// chắc chắn xảy ra trong 90s mô phỏng; tốc độ/cung/bán kính giữ nguyên
+// như config thật. Manager mới, không dính DJ/VIP của pha 1.
+const orbitCfg = CONFIG.dancers.wander.cageOrbit;
+orbitCfg.nextDelayMin = 2;
+orbitCfg.nextDelayMax = 4;
+orbitCfg.arcMin = 1.0;
+orbitCfg.arcMax = 1.5;
+const manager2 = new DancerManager(fakeScene, {});
+const users2 = Array.from({ length: 12 }, (_, i) => ({
+  uniqueId: `v${i + 1}`,
+  name: `Viewer ${i + 1}`,
+  avatar: null,
+}));
+const dancers2 = users2.map((u) => manager2.addOrGet(u));
+check(dancers2.every(Boolean), 'pha lồng: đủ 12 dancer lên sàn');
+const cageCfg = CONFIG.scene.cage;
+const discR = cageCfg.radius + w.cageKeepOutMargin;
+let orbitsStarted = 0;
+let orbitsFinished = 0;
+let maxOrbiters = 0;
+let orbitBoundsViolations = 0;
+let orbitDiscViolations = 0;
+let orbitDistMin = Infinity;
+let orbitDistMax = 0;
+const wasOrbiting = new Set();
+const TOTAL2 = 90;
+const steps2 = Math.round(TOTAL2 / dt);
+for (let step = 0; step <= steps2; step += 1) {
+  const time = step * dt;
+  const beatPhase = ((time * bpm) / 60) % 1;
+  manager2.update(dt, time, beatPhase);
+  if (step % 6 !== 0) continue; // lấy mẫu mỗi 0.1s
+  let orbiters = 0;
+  for (const d of dancers2) {
+    const p = d.group.position;
+    check(
+      Number.isFinite(p.x) && Number.isFinite(p.z) && Number.isFinite(p.y),
+      `pha lồng: vị trí NaN lúc t=${time.toFixed(1)}s`,
+    );
+    if (d.cageOrbit) {
+      orbiters += 1;
+      if (!wasOrbiting.has(d)) {
+        wasOrbiting.add(d);
+        orbitsStarted += 1;
+      }
+      const distCage = Math.hypot(p.x - cageCfg.centerX, p.z - cageCfg.centerZ);
+      if (distCage < orbitDistMin) orbitDistMin = distCage;
+      if (distCage > orbitDistMax) orbitDistMax = distCage;
+    } else if (wasOrbiting.has(d)) {
+      wasOrbiting.delete(d);
+      orbitsFinished += 1;
+    }
+    if (d.mode === 'dance' && d.enterProgress >= 1) {
+      if (!inBounds(p)) {
+        orbitBoundsViolations += 1;
+        check(false, `pha lồng: dancer ra khỏi vùng sàn tại (${p.x.toFixed(2)}, ${p.z.toFixed(2)}) lúc t=${time.toFixed(1)}s`);
+      }
+      const distCage = Math.hypot(p.x - cageCfg.centerX, p.z - cageCfg.centerZ);
+      if (distCage < discR - 0.05) {
+        orbitDiscViolations += 1;
+        check(false, `pha lồng: dancer lọt đĩa cấm lồng (cách tâm ${distCage.toFixed(2)}m < ${discR}m) lúc t=${time.toFixed(1)}s`);
+      }
+    }
+  }
+  if (orbiters > maxOrbiters) maxOrbiters = orbiters;
+}
+check(orbitsStarted >= 3, `pha lồng: đủ chuyến đi vòng xảy ra (chỉ ${orbitsStarted})`);
+check(orbitsFinished >= 1, `pha lồng: có chuyến đi vòng chạy trọn (chỉ ${orbitsFinished} chuyến xong)`);
+check(
+  maxOrbiters <= orbitCfg.maxConcurrent,
+  `pha lồng: cùng lúc tối đa ${maxOrbiters} người đi vòng (trần ${orbitCfg.maxConcurrent})`,
+);
+check(orbitBoundsViolations === 0, `pha lồng: ${orbitBoundsViolations} lần ra khỏi vùng sàn`);
+check(orbitDiscViolations === 0, `pha lồng: ${orbitDiscViolations} lần lọt đĩa cấm lồng`);
+check(
+  orbitDistMin >= discR - 0.05 && orbitDistMax <= 3.1,
+  `pha lồng: khoảng cách tới tâm lồng lúc đi vòng ${orbitDistMin.toFixed(2)}–${orbitDistMax.toFixed(2)}m (đĩa cấm ${discR}m, trần 3.1m)`,
+);
+
 console.log(`wander-harness: ${failures.length === 0 ? 'PASS' : 'FAIL'} (${failures.length} lỗi)`);
+console.log(`  đi vòng quanh lồng: ${orbitsStarted} chuyến bắt đầu, ${orbitsFinished} chuyến xong, cùng lúc tối đa ${maxOrbiters} người, cách tâm lồng ${orbitDistMin.toFixed(2)}–${orbitDistMax.toFixed(2)}m`);
 console.log(`  khoảng cách nhỏ nhất giữa 2 dancer: ${worstSeparation.toFixed(3)}m (ngưỡng ${w.minSeparation})`);
 console.log(`  số dancer dịch > 1m (t=10s -> t=55s): ${movedFar}/11`);
 console.log(`  moveIndex đã thấy: ${[...moveIndices].join(', ')}`);

@@ -932,6 +932,10 @@ export class DancerManager {
       poleSpinLastBar: -1,
       poleSpinRecoverAt: 0,
       poleFacing: 0, // 0 = hướng ra ngoài, 1 = quay mặt vào cột
+      // Skill ra khỏi lồng giao lưu (lệnh 07:34): null khi ở trong lồng;
+      // { phase, phaseStartedAt, returnAt, waypoints, waypointIndex, yaw }
+      // khi đang chạy skill grand trên cô múa cột.
+      poleOuting: null,
     };
     this._loadPoleModel(dancer).catch((err) => {
       console.warn('[DancerManager] model múa cột lỗi, dùng procedural:', err);
@@ -1194,8 +1198,9 @@ export class DancerManager {
     idleAction.play();
     skillAction.play();
     skillAction.setEffectiveWeight(0);
-    // Skill đã bắt đầu trước khi model tải xong (hiếm): chạy clip ngay.
-    if (dancer.skillKind) this._playPoleSkill(dancer);
+    // Skill đã bắt đầu trước khi model tải xong (hiếm): rose thì chạy
+    // clip ngay; grand thì outing đã bắt đầu, mixer idle cứ chạy nền.
+    if (dancer.skillKind === 'rose') this._playPoleSkill(dancer);
   }
 
   // Skill donate trên model GLB: clip múa cột đè lên idle loop, vừa đúng
@@ -1226,6 +1231,389 @@ export class DancerManager {
     idle.fadeIn(fade);
     idle.play();
     skill.fadeOut(fade);
+  }
+
+  // ---- Skill "ra khỏi lồng giao lưu" (user lệnh 07:34) ----
+  // Tier lớn lên cô múa cột: mờ dần tại cột → hiện ở điểm sàn → nhảy
+  // giao lưu bằng clip idle → mờ dần → hiện lại ở cột. Ra/vào bằng fade
+  // (không đi xuyên nan), poleAngle giữ nguyên suốt skill nên về lồng
+  // nối liền mạch, không nhảy cóc. Camera + pháo bông do luồng skill
+  // chung lo (getSkillCameraPose bám group.position mỗi frame).
+  _beginPoleOuting(dancer, time) {
+    if (dancer.poleOuting) this._endPoleOuting(dancer);
+    const out = (CONFIG.skills.grand && CONFIG.skills.grand.poleOuting) || {};
+    const fade = out.fadeSeconds || 0.6;
+    dancer.poleOuting = {
+      phase: 'out',
+      phaseStartedAt: time,
+      returnAt: dancer.skillUntil - 2 * fade,
+      waypoints: this._pickOutingWaypoints(dancer),
+      waypointIndex: 0,
+      yaw: dancer.group.rotation.y,
+    };
+    this._setPoleOutingOpacity(dancer, 1);
+  }
+
+  // Kết thúc outing (hết skill hoặc bị cắt ngang): hiện rõ + về đúng vị
+  // trí bám cột theo poleAngle hiện tại. Không làm gì nếu không outing.
+  _endPoleOuting(dancer) {
+    if (!dancer.poleOuting) return;
+    dancer.poleOuting = null;
+    this._setPoleOutingOpacity(dancer, 1);
+    const pc = CONFIG.dancers.poleDancer;
+    const cage = CONFIG.scene.cage;
+    dancer.group.position.set(
+      cage.centerX + Math.cos(dancer.poleAngle) * pc.orbitRadius,
+      dancer.group.position.y,
+      cage.centerZ + Math.sin(dancer.poleAngle) * pc.orbitRadius,
+    );
+    dancer.group.rotation.y = Math.PI / 2 - dancer.poleAngle - dancer.poleFacing * Math.PI;
+  }
+
+  // Mờ dần toàn bộ người múa cột (mesh + tên + vương miện): stash trạng
+  // thái gốc của material lần đầu, về 1 thì trả đúng trạng thái cũ.
+  _setPoleOutingOpacity(dancer, v) {
+    dancer.group.traverse((o) => {
+      if (!o.isMesh && !o.isSprite) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if (!m) continue;
+        if (m.userData._outingOrig === undefined) {
+          m.userData._outingOrig = { transparent: m.transparent, opacity: m.opacity };
+        }
+        if (v >= 1) {
+          m.opacity = m.userData._outingOrig.opacity;
+          m.transparent = m.userData._outingOrig.transparent;
+        } else {
+          m.transparent = true;
+          m.opacity = v * m.userData._outingOrig.opacity;
+        }
+      }
+    });
+  }
+
+  // Điểm giao lưu: trên vòng quanh tâm lồng, phía trước (hướng camera),
+  // ngoài đĩa cấm + đủ xa để tay với không chạm nan, trong sàn, không
+  // đè khu cấm khác, cách dancer khác ≥0,8m lúc chọn. Luân phiên 2 bên
+  // để cô ấy không chỉ đứng 1 chỗ.
+  _pickOutingWaypoints(dancer) {
+    const out = (CONFIG.skills.grand && CONFIG.skills.grand.poleOuting) || {};
+    const ringR = out.ringRadius || 2.35;
+    const limits = this._wanderLimits();
+    const cage = CONFIG.scene.cage;
+    const discR = cage.radius + (CONFIG.dancers.wander.cageKeepOutMargin || 0.35) + 0.5;
+    const pts = [];
+    const angles = [0.26, 2.88, 0, Math.PI, 0.61, 2.53, 0.87, 2.27];
+    for (const a of angles) {
+      if (pts.length >= 3) break;
+      const x = cage.centerX + Math.cos(a) * ringR;
+      const z = cage.centerZ + Math.sin(a) * ringR;
+      // Trong sàn (đệm 0,3) + ngoài đĩa cấm (tay với không chạm nan).
+      if (x < limits.minX + 0.3 || x > limits.maxX - 0.3
+        || z < limits.minZ + 0.3 || z > limits.maxZ - 0.3) continue;
+      if (Math.hypot(x - cage.centerX, z - cage.centerZ) < discR) continue;
+      if (this._wanderBlocked(x, z, limits, 0.3)) continue;
+      let ok = true;
+      for (const other of this.dancers.values()) {
+        if (Math.hypot(other.group.position.x - x, other.group.position.z - z) < 0.8) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) pts.push(new THREE.Vector3(x, 0, z));
+    }
+    if (pts.length === 0) {
+      // Dự phòng: điểm trước lồng kẹp vào vùng đi dạo (tách dancer lo
+      // phần còn lại nếu đông).
+      const p = new THREE.Vector3(cage.centerX + ringR * 0.7, 0, cage.centerZ + ringR * 0.7);
+      this._clampPointToWander(p, limits);
+      // Kẹp vào sàn có thể kéo điểm vào trong đĩa cấm — đẩy xuyên tâm ra
+      // tới đĩa an toàn rồi kẹp lại (kẹp cuối vẫn giữ ngoài nan lồng).
+      const rr = Math.hypot(p.x - cage.centerX, p.z - cage.centerZ);
+      if (rr < discR) {
+        const a = Math.atan2(p.z - cage.centerZ, p.x - cage.centerX);
+        p.x = cage.centerX + Math.cos(a) * discR;
+        p.z = cage.centerZ + Math.sin(a) * discR;
+        this._clampPointToWander(p, limits);
+      }
+      pts.push(p);
+    }
+    // Nối 2 điểm vòng bằng đoạn thẳng sẽ cắt qua đĩa cấm khi chúng cách
+    // nhau góc lớn (dây cung chui vào trong lồng, kẹp mỗi frame dí cô ấy
+    // sát nan ở đúng r=1,75m). Chèn điểm trung gian TRÊN VÒNG để mỗi
+    // đoạn đều nằm ngoài đĩa cấm (dây cung ở r=2,35m, bước ≤1,0 rad thì
+    // điểm giữa dây vẫn cách tâm > 2m).
+    if (pts.length > 1) {
+      const subdivided = [];
+      const maxStep = 1.0;
+      for (let i = 0; i < pts.length; i += 1) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        subdivided.push(a);
+        const aAng = Math.atan2(a.z - cage.centerZ, a.x - cage.centerX);
+        const bAng = Math.atan2(b.z - cage.centerZ, b.x - cage.centerX);
+        let dAng = bAng - aAng;
+        while (dAng > Math.PI) dAng -= Math.PI * 2;
+        while (dAng < -Math.PI) dAng += Math.PI * 2;
+        const steps = Math.max(1, Math.ceil(Math.abs(dAng) / maxStep));
+        const rA = Math.hypot(a.x - cage.centerX, a.z - cage.centerZ);
+        const rB = Math.hypot(b.x - cage.centerX, b.z - cage.centerZ);
+        for (let k = 1; k < steps; k += 1) {
+          const t = k / steps;
+          const ang = aAng + dAng * t;
+          const r = rA + (rB - rA) * t;
+          subdivided.push(new THREE.Vector3(
+            cage.centerX + Math.cos(ang) * r, 0, cage.centerZ + Math.sin(ang) * r));
+        }
+      }
+      return subdivided;
+    }
+    return pts;
+  }
+
+  // Nội suy góc ngắn nhất (tránh quay vòng dài khi đổi hướng).
+  _lerpAngle(a, b, t) {
+    let d = (b - a) % (Math.PI * 2);
+    if (d > Math.PI) d -= Math.PI * 2;
+    if (d < -Math.PI) d += Math.PI * 2;
+    return a + d * t;
+  }
+
+  // Giữ khoảng cách với dancer khán giả lúc giao lưu (chỉ đẩy cô múa
+  // cột, không xô dancer khác).
+  _separatePoleOuting(dancer, minSep) {
+    const p = dancer.group.position;
+    for (const other of this.dancers.values()) {
+      if (other.mode === 'leaving') continue;
+      const op = other.group.position;
+      const dx = p.x - op.x;
+      const dz = p.z - op.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < minSep && dist > 1e-6) {
+        const push = (minSep - dist) * 0.5;
+        p.x += (dx / dist) * push;
+        p.z += (dz / dist) * push;
+      }
+    }
+  }
+
+  // Máy trạng thái outing, gọi mỗi frame trong nhánh pole khi outing.
+  // Mixer idle vẫn chạy (caller đã mixer.update); _syncPoleHead do caller lo.
+  _updatePoleOuting(dancer, dt, time, swing, amp) {
+    const out = (CONFIG.skills.grand && CONFIG.skills.grand.poleOuting) || {};
+    const fade = out.fadeSeconds || 0.6;
+    const o = dancer.poleOuting;
+    if (!o) return;
+    const group = dancer.group;
+    const pc = CONFIG.dancers.poleDancer;
+    const cage = CONFIG.scene.cage;
+    const bobY = Math.max(0, swing) * amp * 0.5;
+    const orbitPos = () => {
+      group.position.set(
+        cage.centerX + Math.cos(dancer.poleAngle) * pc.orbitRadius,
+        bobY,
+        cage.centerZ + Math.sin(dancer.poleAngle) * pc.orbitRadius,
+      );
+    };
+    const orbitYaw = () => Math.PI / 2 - dancer.poleAngle - dancer.poleFacing * Math.PI;
+    const phaseT = () => Math.min(1, (time - o.phaseStartedAt) / fade);
+    switch (o.phase) {
+      case 'out': {
+        const t = phaseT();
+        this._setPoleOutingOpacity(dancer, 1 - t);
+        orbitPos();
+        group.rotation.y = orbitYaw();
+        if (t >= 1) {
+          const wp = o.waypoints[0];
+          group.position.set(wp.x, bobY, wp.z);
+          const next = o.waypoints[1] || wp;
+          o.yaw = Math.atan2(next.x - wp.x, next.z - wp.z);
+          group.rotation.y = o.yaw;
+          this._setPoleOutingOpacity(dancer, 0);
+          o.phase = 'in';
+          o.phaseStartedAt = time;
+        }
+        break;
+      }
+      case 'in': {
+        const t = phaseT();
+        this._setPoleOutingOpacity(dancer, t);
+        group.position.set(o.waypoints[0].x, bobY, o.waypoints[0].z);
+        group.rotation.y = o.yaw;
+        if (t >= 1) {
+          this._setPoleOutingOpacity(dancer, 1);
+          o.phase = 'mingle';
+          o.phaseStartedAt = time;
+        }
+        break;
+      }
+      case 'mingle': {
+        const target = o.waypoints[o.waypointIndex];
+        const dx = target.x - group.position.x;
+        const dz = target.z - group.position.z;
+        const dist = Math.hypot(dx, dz);
+        const speed = out.mingleSpeed || 0.35;
+        if (dist > 0.12) {
+          const step = Math.min(dist, speed * dt);
+          group.position.x += (dx / dist) * step;
+          group.position.z += (dz / dist) * step;
+          o.yaw = this._lerpAngle(o.yaw, Math.atan2(dx, dz), Math.min(1, dt * 6));
+        } else {
+          o.waypointIndex = (o.waypointIndex + 1) % o.waypoints.length;
+        }
+        group.position.y = bobY;
+        group.rotation.y = o.yaw;
+        this._separatePoleOuting(dancer, out.minSeparation || 0.6);
+        this._clampPointToWander(group.position, this._wanderLimits());
+        if (time >= o.returnAt) {
+          o.phase = 'backOut';
+          o.phaseStartedAt = time;
+        }
+        break;
+      }
+      case 'backOut': {
+        const t = phaseT();
+        this._setPoleOutingOpacity(dancer, 1 - t);
+        group.position.y = bobY;
+        if (t >= 1) {
+          orbitPos();
+          group.rotation.y = orbitYaw();
+          this._setPoleOutingOpacity(dancer, 0);
+          o.phase = 'backIn';
+          o.phaseStartedAt = time;
+        }
+        break;
+      }
+      case 'backIn': {
+        const t = phaseT();
+        this._setPoleOutingOpacity(dancer, t);
+        orbitPos();
+        group.rotation.y = orbitYaw();
+        if (t >= 1) {
+          this._setPoleOutingOpacity(dancer, 1);
+          dancer.poleOuting = null;
+        }
+        break;
+      }
+      default:
+        dancer.poleOuting = null;
+        break;
+    }
+  }
+
+  // ---- Song ca trong lồng (user lệnh 07:40, đoạn 1 của buổi diễn) ----
+  // Khách (dancer của người tặng gift lớn) vào lồng ôm cột chung với cô
+  // múa cột, NGƯỢC PHA với cô ấy (góc = poleAngle + π, bán kính lớn hơn),
+  // mặt hướng về cột, chân tay nhảy theo bộ động tác chibi thường (nhánh
+  // 'dance' lo phần đó — hàm này chỉ lo vị trí + hướng mặt). Vào/ra lồng
+  // bằng lao nhanh (dash) 0,5s: fade không dùng được vì material mặt +
+  // dây chuyền của chibi dùng chung giữa các dancer (mờ 1 người là mờ cả
+  // sàn). Nhớ slot gốc (home) để trả về đúng chỗ khi hết đoạn song ca.
+  _beginPoleShow(dancer, guest, time, duetSeconds) {
+    if (!guest || guest === dancer || guest.mode === 'leaving' || !this._ownsDancer(guest)) {
+      return false;
+    }
+    // Khách đang ở bục VIP / đi vòng từ gift/lệnh trước: kéo về sàn
+    // trước đã (duet chỉ chạy trong nhánh 'dance').
+    if (guest.mode === 'vip') {
+      guest.mode = 'dance';
+      guest.vipUntil = 0;
+      if (![...this.dancers.values()].some((o) => o !== guest && o.mode === 'vip')
+          && this.hooks.onVipSpotlight) this.hooks.onVipSpotlight(false);
+      this._resetWanderTowardFloor(guest);
+    } else if (guest.mode === 'orbit') {
+      guest.mode = 'dance';
+      guest.orbitUntil = 0;
+      this._resetWanderTowardFloor(guest);
+    }
+    // Show trước bị ngắt giữa chừng mà khách chưa về slot: giữ home cũ,
+    // khỏi lấy nhầm vị trí trong lồng làm slot gốc.
+    const home = (guest.duet && guest.duet.home)
+      ? guest.duet.home.clone()
+      : guest.group.position.clone();
+    dancer.poleShow = { guest, duetUntil: time + duetSeconds, outingBegan: false };
+    guest.duet = {
+      phase: 'enter',
+      phaseStartedAt: time,
+      duetUntil: time + duetSeconds,
+      home,
+    };
+    // Vòng sáng ở cửa lồng lúc khách lao vào (che cú dash qua nan).
+    if (this.hooks.onRing) {
+      const cage = CONFIG.scene.cage;
+      this.hooks.onRing(new THREE.Vector3(cage.centerX, 0.2, cage.centerZ));
+    }
+    return true;
+  }
+
+  // Kết thúc buổi diễn (hết giờ hoặc bị ngắt): dọn poleShow; khách còn
+  // đang song ca thì cho lao về slot gốc ngay, khỏi kẹt trong lồng.
+  _endPoleShow(dancer, time) {
+    const show = dancer.poleShow;
+    dancer.poleShow = null;
+    const guest = show && show.guest;
+    if (guest && guest.duet && this._ownsDancer(guest)) {
+      guest.duet.phase = 'exit';
+      guest.duet.phaseStartedAt = time;
+    }
+  }
+
+  // Máy trạng thái của KHÁCH trong đoạn song ca. Gọi cuối nhánh 'dance'
+  // (sau khi nhánh đó đã tính y + hướng mặt thường — hàm này ghi đè x/z
+  // + hướng mặt, giữ nguyên y để khỏi phá nhịp nhún).
+  _updateGuestDuet(dancer, time) {
+    const duet = dancer.duet;
+    if (!duet) return;
+    const group = dancer.group;
+    const keepY = group.position.y;
+    const cage = CONFIG.scene.cage;
+    const duetCfg = (CONFIG.skills.grand && CONFIG.skills.grand.poleDuet) || {};
+    const dash = duetCfg.dashSeconds || 0.5;
+    const radius = duetCfg.orbitRadius || 0.55;
+    const pole = this.poleDancer;
+    // Vị trí ôm cột ngược pha, bám poleAngle từng frame (cô ấy xoay chậm
+    // quanh cột lúc song ca thì khách xoay theo, luôn đối diện nhau).
+    const orbitPos = () => new THREE.Vector3(
+      cage.centerX + Math.cos((pole ? pole.poleAngle : 0) + Math.PI) * radius,
+      keepY,
+      cage.centerZ + Math.sin((pole ? pole.poleAngle : 0) + Math.PI) * radius,
+    );
+    const facePole = (p) => Math.atan2(cage.centerX - p.x, cage.centerZ - p.z);
+    const ease = (t) => t * t * (3 - 2 * t);
+    if (duet.phase === 'enter') {
+      const t = Math.min(1, (time - duet.phaseStartedAt) / dash);
+      const target = orbitPos();
+      group.position.lerpVectors(duet.home, target, ease(t));
+      group.position.y = keepY;
+      group.rotation.y = facePole(group.position);
+      if (t >= 1) {
+        duet.phase = 'dance';
+        duet.phaseStartedAt = time;
+      }
+    } else if (duet.phase === 'dance') {
+      const target = orbitPos();
+      group.position.x = target.x;
+      group.position.z = target.z;
+      group.rotation.y = facePole(group.position);
+      if (time >= duet.duetUntil) {
+        duet.phase = 'exit';
+        duet.phaseStartedAt = time;
+      }
+    } else if (duet.phase === 'exit') {
+      const t = Math.min(1, (time - duet.phaseStartedAt) / dash);
+      const from = orbitPos();
+      group.position.lerpVectors(from, duet.home, ease(t));
+      group.position.y = keepY;
+      group.rotation.y = facePole(group.position);
+      if (t >= 1) {
+        dancer.duet = null;
+        dancer.wanderTarget = null;
+        dancer.wanderRetargetAt = 0;
+        this._resetWanderTowardFloor(dancer);
+      }
+    } else {
+      dancer.duet = null;
+    }
   }
 
   // Bob dọc của clip đang chiếm ưu thế (idle loop hoặc skill): modelRoot
@@ -1509,15 +1897,28 @@ export class DancerManager {
     // Các hiệu ứng còn lại (vòng sáng, đổi nv, lên bục VIP) giữ nguyên.
     const totalDiamonds = Number(opts.totalDiamonds || 0);
     const skillKind = this._skillKindFor(opts.giftName || '', totalDiamonds);
+    // Gift lớn: buổi diễn 2 đoạn chạy trên NGƯỜI MÚA CỘT, khách là
+    // dancer của người tặng (vào lồng song ca, rồi cô ấy ra ngoài giao
+    // lưu); top donor tự tặng (chibi đang ẩn) thì bỏ đoạn song ca
+    // (cô ấy đã mang tên họ rồi) — guest=null, chỉ đoạn giao lưu.
+    // Chưa có người múa cột thì giữ hành vi cũ (skill lên chính dancer).
+    let poleShowQueued = false;
     if (skillKind) {
-      this.enqueueSkill(fxTarget, skillKind, now);
+      if (skillKind === 'grand' && this.poleDancer) {
+        poleShowQueued = this.enqueueSkill(this.poleDancer, skillKind, now, caged ? null : dancer);
+      } else {
+        this.enqueueSkill(fxTarget, skillKind, now);
+      }
     } else {
       if (effects.cameraZoom && this.hooks.onCameraZoom) this.hooks.onCameraZoom();
       if (effects.fireworks && this.hooks.onFireworks) {
         this.hooks.onFireworks(fxTarget.group.position.clone().add(new THREE.Vector3(0, 2.2, 0)));
       }
     }
-    if (effects.vipPodium) this.sendToVip(dancer, now);
+    // Gift lớn có buổi diễn: bỏ chuyến lên bục VIP của gift đó (khách
+    // đang song ca trong lồng, không kéo lên bục); hàng đợi đầy / không
+    // xếp được show thì vẫn lên bục như cũ.
+    if (effects.vipPodium && !poleShowQueued) this.sendToVip(dancer, now);
     return dancer;
   }
 
@@ -1537,10 +1938,12 @@ export class DancerManager {
   }
 
   // Xếp skill vào hàng đợi FIFO. Trả false nếu hàng đầy / dancer sắp rời sàn.
-  enqueueSkill(dancer, kind, now) {
+  // guest: dancer của người tặng, chỉ dùng cho buổi diễn gift lớn trên
+  // người múa cột (vào lồng song ca) — các skill khác để null.
+  enqueueSkill(dancer, kind, now, guest = null) {
     if (!dancer || dancer.mode === 'leaving') return false;
     if (this.skillQueue.length >= CONFIG.skills.queueMaxPending) return false;
-    this.skillQueue.push({ dancer, kind, enqueuedAt: now });
+    this.skillQueue.push({ dancer, kind, enqueuedAt: now, guest: guest || null });
     return true;
   }
 
@@ -1583,15 +1986,28 @@ export class DancerManager {
   _startNextSkill(time) {
     const next = this.skillQueue.shift();
     if (!next) return;
-    const { dancer, kind } = next;
+    const { dancer, kind, guest } = next;
     if (!this._ownsDancer(dancer) || dancer.mode === 'leaving') {
       this._startNextSkill(time);
       return;
     }
     const cfg = kind === 'grand' ? CONFIG.skills.grand : CONFIG.skills.rose;
+    // Tier lớn lên cô múa cột: buổi diễn 2 đoạn (song ca + giao lưu),
+    // tổng thời lượng = 2 đoạn cộng lại; không có khách (top donor tự
+    // tặng / khách đã rời) thì chỉ đoạn giao lưu. skillUntil gán TRƯỚC
+    // khi bắt đầu outing vì _beginPoleOuting tính giờ về từ nó.
+    const isPoleGrand = dancer === this.poleDancer && kind === 'grand';
+    let dur = cfg.durationSeconds;
+    let duetStarted = false;
+    if (isPoleGrand) {
+      const outDur = (cfg.poleOuting && cfg.poleOuting.durationSeconds) || cfg.durationSeconds;
+      const duetDur = (cfg.poleDuet && cfg.poleDuet.durationSeconds) || 0;
+      if (guest && duetDur > 0) duetStarted = this._beginPoleShow(dancer, guest, time, duetDur);
+      dur = duetStarted ? duetDur + outDur : outDur;
+    }
     dancer.skillKind = kind;
     dancer.skillStartedAt = time;
-    dancer.skillUntil = time + cfg.durationSeconds;
+    dancer.skillUntil = time + dur;
     dancer.somersaultFired = false;
     if (kind === 'grand') {
       dancer.somersaultStartedAt = time + cfg.somersaultDelaySeconds;
@@ -1605,9 +2021,13 @@ export class DancerManager {
       wavesFired: 0,
       nextWaveAt: kind === 'grand' ? time + 0.15 : 0,
     };
-    // Người múa cột model GLB: skill chạy bằng clip múa cột (video
-    // @chaniee102), đè lên idle loop, hết skill về lại idle.
-    if (dancer === this.poleDancer) this._playPoleSkill(dancer);
+    // Người múa cột model GLB: rose chạy clip múa cột (video
+    // @chaniee102) đè lên idle loop; grand chạy buổi diễn (song ca rồi
+    // giao lưu, hoặc chỉ giao lưu khi không song ca), hết skill về lại idle.
+    if (dancer === this.poleDancer) {
+      if (kind === 'rose') this._playPoleSkill(dancer);
+      else if (kind === 'grand' && !duetStarted) this._beginPoleOuting(dancer, time);
+    }
     this.boost(dancer, 1);
     // Rose: bật nhảy 1 cái lúc bắt đầu skill (cùng cơ chế lệnh "nhảy").
     if (kind === 'rose') {
@@ -1666,7 +2086,11 @@ export class DancerManager {
     // Skill kế trong hàng đợi bắt đầu ngay trong cùng tick (không chờ frame sau).
     if (time >= dancer.skillUntil) {
       dancer.skillKind = null;
-      if (dancer === this.poleDancer) this._stopPoleSkill(dancer);
+      if (dancer === this.poleDancer) {
+        this._stopPoleSkill(dancer);
+        this._endPoleOuting(dancer);
+        this._endPoleShow(dancer, time);
+      }
       dancer.somersaultAngle = 0;
       dancer.group.rotation.x = 0;
       this.activeSkill = null;
@@ -2092,7 +2516,9 @@ export class DancerManager {
     const movers = [...this.dancers.values()].filter(
       // Chibi của top donor đang đứng lồng (ẩn, đứng yên tại slot) thì
       // không tham gia tách — khỏi đẩy người khác / bị đẩy khỏi slot.
-      (d) => d.mode === 'dance' && d.enterProgress >= 1 && d !== this.djDancer,
+      // Khách đang song ca trong lồng cũng vậy (vị trí do duet lo, trong
+      // đĩa cấm của lồng) — khỏi bị tách/clamp đẩy ra khỏi lồng.
+      (d) => d.mode === 'dance' && d.enterProgress >= 1 && d !== this.djDancer && !d.duet,
     );
     for (let pass = 0; pass < 2; pass += 1) {
       for (let i = 0; i < movers.length; i += 1) {
@@ -2225,16 +2651,37 @@ export class DancerManager {
           dancer.mixer.update(dt);
           if (dancer.modelRoot) dancer.modelRoot.position.y = this._samplePoleRootY(dancer);
         }
-        if (dancer.modelReady) {
-          // Nhảy tại chỗ bám cột (r=0,34m), hướng ra ngoài (về phía
-          // camera); thỉnh thoảng xoay đúng 1 vòng quanh cột, quay mặt
-          // vào cột lúc xoay, blend hướng mặt mượt (lệnh 03:22).
+        // Hết đoạn song ca → bắt đầu đoạn giao lưu ngoài sàn (lệnh 07:40):
+        // chuyển trạng thái ngay trong khung này; outing chạy từ dưới
+        // lên, poleAngle giữ nguyên nên về lồng nối liền mạch.
+        if (dancer.poleShow && !dancer.poleOuting && !dancer.poleShow.outingBegan
+            && time >= dancer.poleShow.duetUntil) {
+          dancer.poleShow.outingBegan = true;
+          this._beginPoleOuting(dancer, time);
+        }
+        if (dancer.poleOuting) {
+          // Skill ra khỏi lồng giao lưu (lệnh 07:34): máy trạng thái
+          // outing lo vị trí + mờ dần; mixer idle vẫn chạy nền, tên +
+          // vương miện theo xương đầu như cũ.
+          this._updatePoleOuting(dancer, dt, time, swing, amp);
+          this._syncPoleHead(dancer);
+        } else if (dancer.modelReady) {
+            // Nhảy tại chỗ bám cột (r=0,34m), hướng ra ngoài (về phía
+            // camera); thỉnh thoảng xoay đúng 1 vòng quanh cột, quay mặt
+            // vào cột lúc xoay, blend hướng mặt mượt (lệnh 03:22).
           const pc = CONFIG.dancers.poleDancer;
           const cage = CONFIG.scene.cage;
           const poleBpm = (CONFIG.music && CONFIG.music.bpm) || 128;
           const poleBeatsPerBar = (CONFIG.music && CONFIG.music.beatsPerBar) || 4;
           const barFloat = (time * poleBpm) / (60 * poleBeatsPerBar);
           const barIndex = Math.floor(barFloat);
+          // Song ca trong lồng (lệnh 07:40): xoay chậm quanh cột cùng
+          // khách (khách bám ngược pha qua poleAngle, xem
+          // _updateGuestDuet); spin 8 bar đã bị skillKind chặn sẵn.
+          if (dancer.poleShow) {
+            const duetCfg = (CONFIG.skills.grand && CONFIG.skills.grand.poleDuet) || {};
+            dancer.poleAngle += dt * (duetCfg.spinSpeed || 0.5);
+          }
           if (dancer.poleSpinState === 'idle'
             && barIndex % (pc.spinEveryBars || 8) === 0
             && barIndex !== dancer.poleSpinLastBar
@@ -2361,13 +2808,17 @@ export class DancerManager {
         // vuông góc với hướng đi (không theo trục X thế giới), áp
         // mượt từng khung để không tích lũy trôi vị trí.
         const frozen = !!dancer.skillKind;
-        if (!frozen && dancer.enterProgress >= 1) {
+        // Song ca trong lồng (lệnh 07:40): khách không đi dạo/bước ngang
+        // — vị trí + hướng mặt do _updateGuestDuet lo, chân tay vẫn nhảy
+        // theo bộ động tác thường.
+        const duetting = !!dancer.duet;
+        if (!frozen && !duetting && dancer.enterProgress >= 1) {
           const heading = this._steerWander(dancer, dt);
           group.position.x += Math.sin(heading) * dancer.wanderSpeed * dt;
           group.position.z += Math.cos(heading) * dancer.wanderSpeed * dt;
           this._clampToWander(dancer, this._wanderLimits());
         }
-        if (!frozen && dancer.enterProgress >= 1) {
+        if (!frozen && !duetting && dancer.enterProgress >= 1) {
           const sideX = Math.cos(dancer.wanderHeading);
           const sideZ = -Math.sin(dancer.wanderHeading);
           dancer.stepOffset += (movePose.stepX - dancer.stepOffset) * Math.min(1, dt * 6);
@@ -2384,6 +2835,9 @@ export class DancerManager {
           const progress = 1 - (dancer.jumpUntil - time) / CONFIG.dancers.jumpDurationSeconds;
           group.position.y += Math.sin(progress * Math.PI) * d.jumpAmplitude;
         }
+        // Song ca trong lồng: ghi đè vị trí (ôm cột ngược pha) + hướng
+        // mặt về cột; y đã tính ở trên được giữ nguyên.
+        if (duetting) this._updateGuestDuet(dancer, time);
       }
 
       // Skill santo (grand): lộn nhào 1 vòng trọn 360° quanh trục ngang
@@ -2391,9 +2845,10 @@ export class DancerManager {
       // Ghi lại góc lộn để camera bám tâm người (không nhìn chằm vào
       // điểm gốc+1.2m khiến dancer rớt khỏi khung giữa vòng — lỗi 22:29).
       // Skill santo (grand): lộn nhào 1 vòng — CHỈ chibi thường; người
-      // múa cột model GLB không lộn (clip skill đã là màn trình diễn).
+      // múa cột model GLB không lộn (clip skill đã là màn trình diễn),
+      // đang ra ngoài giao lưu cũng không lộn (đang đi/mờ dần).
       const somersaulting = dancer.skillKind === 'grand'
-        && !(dancer.mode === 'pole' && dancer.modelReady)
+        && !(dancer.mode === 'pole' && (dancer.modelReady || dancer.poleOuting))
         && time >= dancer.somersaultStartedAt && time < dancer.somersaultUntil;
       if (somersaulting) {
         const sp = (time - dancer.somersaultStartedAt) / CONFIG.skills.grand.somersaultDurationSeconds;

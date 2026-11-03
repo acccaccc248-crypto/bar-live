@@ -570,8 +570,12 @@ export const CONFIG = {
       cameraLerpSpeed: 3.0,
     },
     // Skill "gift lớn": donate từ ngưỡng này trở lên (mặc định ≥10 💎,
-    // tức tier trung trở lên). Camera lia + nhảy santo 1 vòng + pháo bông
-    // nhiều đợt. Tier lớn (VIP) giữ hành vi VIP sẵn có + thêm skill này.
+    // tức tier trung trở lên). Buổi diễn 2 đoạn nối tiếp trên CÔ MÚA CỘT
+    // (user lệnh 07:34 + 07:40): (1) song ca trong lồng — dancer của
+    // người tặng vào lồng ôm cột chung, ngược pha với cô ấy; (2) giao lưu
+    // ngoài sàn — cô ấy ra khỏi lồng nhảy giữa mọi người, khách về slot.
+    // Pháo bông nhiều đợt + camera lia giữ nguyên. Gift lớn không còn
+    // kéo khách lên bục VIP (buổi diễn thay luôn chuyến VIP đó).
     grand: {
       minTotalDiamonds: 10,
       durationSeconds: 4.5,
@@ -588,6 +592,30 @@ export const CONFIG = {
       // Âm DJ pad theo mốc: riser khi bắt đầu skill, impact khi bắt đầu santo.
       // Gọi qua hook onSkillPad -> music.triggerPad (js/audio.js, agent nhạc).
       pads: { onStart: 'riser', onSomersault: 'impact' },
+      // Ra khỏi lồng giao lưu (user lệnh 07:34): tier lớn lên CÔ MÚA CỘT
+      // thì cô ấy ra khỏi lồng nhảy giao lưu giữa sàn rồi quay về, thay
+      // cho clip múa cột ở tier lớn. Rose giữ clip múa cột trong lồng
+      // như cũ. Đoạn này chạy SAU đoạn song ca (xem poleDuet).
+      poleOuting: {
+        durationSeconds: 10, // thay cho grand.durationSeconds khi target là cô múa cột
+        fadeSeconds: 0.6, // mờ dần ở mỗi đầu (ra: mờ đi + hiện lên, về: mờ đi + hiện lên)
+        ringRadius: 2.35, // điểm giao lưu nằm trên vòng quanh tâm lồng (ngoài đĩa cấm + tay với)
+        mingleSpeed: 0.35, // m/giây — đi chậm giao lưu, không chạy
+        minSeparation: 0.6, // giữ khoảng cách với dancer khác lúc giao lưu
+      },
+      // Song ca trong lồng (user lệnh 07:40): dancer của người tặng gift
+      // lớn vào lồng ôm cột chung với cô múa cột, ngược pha với cô ấy
+      // (cô ấy r=0,34m, khách r=0,55m), vừa xoay quanh cột vừa nhảy bằng
+      // điệu chibi procedural sẵn có, mặt hướng về cột; không santo trong
+      // lồng (chật). Khách lao nhanh vào/ra lồng (dash 0,5s, không fade
+      // vì material mặt/dây chuyền của chibi dùng chung giữa các dancer).
+      // Hết đoạn này thì khách về slot gốc, cô ấy ra ngoài giao lưu.
+      poleDuet: {
+        durationSeconds: 6, // vào 0,5s + song ca 5s + ra 0,5s; tổng buổi diễn = 6 + 10 = 16s
+        orbitRadius: 0.55, // bán kính khách ôm cột (cô ấy 0,34m)
+        dashSeconds: 0.5, // lao vào/ra lồng
+        spinSpeed: 0.5, // rad/giây — cả hai xoay chậm quanh cột lúc song ca
+      },
     },
   },
 

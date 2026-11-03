@@ -14,6 +14,11 @@
 //   5. Đường model trong update(): bám cột r=0,34m suốt, xoay đúng
 //      1 vòng/bar-chu kỳ, mặt vào cột lúc xoay, vương miện (headGroup)
 //      theo xương đầu, skill rose chạy clip skill rồi về idle.
+//   6. Buổi diễn gift lớn (lệnh 07:34 + 07:40): song ca trong lồng
+//      (khách ngược pha, không chồng lấn, mặt về cột) rồi giao lưu ngoài
+//      sàn (r > 1,75m), khách về đúng slot, cô ấy về cột, 2 show xếp
+//      hàng FIFO không chồng; edge top-donor tự tặng (chỉ giao lưu) và
+//      người tặng mới (tạo dancer + không lên bục VIP).
 // Dùng Math.random có seed để ổn định.
 
 import { readFile } from 'node:fs/promises';
@@ -344,6 +349,186 @@ check(Math.abs(pole.poleActions.idle.getEffectiveWeight() - 1) < 0.05,
   'sau skill idle weight về ~1 (' + pole.poleActions.idle.getEffectiveWeight().toFixed(3) + ')');
 check(pole.poleActions.skill.getEffectiveWeight() < 0.05,
   'sau skill skill weight về ~0 (' + pole.poleActions.skill.getEffectiveWeight().toFixed(3) + ')');
+
+console.log('[7] Buổi diễn gift lớn: song ca trong lồng + giao lưu (lệnh 07:40 + 07:34)');
+const guest = mgr.addOrGet({ uniqueId: 'guest-duet-1', name: 'Khach Song Ca' });
+const guest2 = mgr.addOrGet({ uniqueId: 'guest-duet-2', name: 'Khach Thu Hai' });
+check(!!guest && !!guest2, 'tạo 2 dancer khách cho người tặng');
+check(guest.mode === 'dance' && guest2.mode === 'dance', 'khách mới đứng sàn (mode dance)');
+const duetCfg = CONFIG.skills.grand.poleDuet;
+const outCfg = CONFIG.skills.grand.poleOuting;
+check(!!duetCfg && !!outCfg, 'CONFIG có poleDuet + poleOuting');
+check(mgr.enqueueSkill(pole, 'grand', time, guest), 'enqueueSkill(grand, guest) nhận');
+const angDiff = (a, b) => {
+  let d = (a - b) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return d;
+};
+let firstStart = null;
+let secondStart = null;
+let sawDuet1 = false;
+let sawDuet2 = false;
+let sawMingle = false;
+let sawGuest2Queued = false;
+let duetHome1 = null;
+let duetHome2 = null;
+let checkedReturn1 = false;
+let checkedReturn2 = false;
+const headWorld7 = new THREE.Vector3();
+for (let i = 0; i < 60 * 40 && !(secondStart !== null && pole.skillKind === null && mgr.skillQueue.length === 0); i += 1) {
+  time += dt;
+  const beatPhase = ((time * bpm) / 60) % 1;
+  mgr.update(dt, time, beatPhase);
+  finiteVec3(pole.group.position, 'show frame ' + i + ' vị trí pole');
+  finiteVec3(guest.group.position, 'show frame ' + i + ' vị trí khách 1');
+  finiteVec3(guest2.group.position, 'show frame ' + i + ' vị trí khách 2');
+  if (firstStart === null && pole.skillKind === 'grand') firstStart = pole.skillStartedAt;
+  if (firstStart !== null && secondStart === null && pole.skillStartedAt !== firstStart) {
+    secondStart = pole.skillStartedAt;
+  }
+  // Xếp show thứ 2 vào hàng đợi giữa lúc show 1 đang chạy: phải chờ,
+  // không được chồng chéo 2 buổi diễn.
+  if (firstStart !== null && !sawGuest2Queued && time >= firstStart + 2) {
+    sawGuest2Queued = mgr.enqueueSkill(pole, 'grand', time, guest2);
+    check(sawGuest2Queued, 'show 2 xếp hàng được trong lúc show 1 chạy');
+    check(mgr.skillQueue.length === 1, 'show 2 nằm chờ trong hàng đợi (không chạy chồng)');
+  }
+  const show = pole.poleShow;
+  const g = show && show.guest;
+  if (g === guest && guest.duet && !duetHome1) duetHome1 = guest.duet.home.clone();
+  if (g === guest2 && guest2.duet && !duetHome2) duetHome2 = guest2.duet.home.clone();
+  if (guest.duet && guest.duet.phase === 'exit' && !checkedReturn1 && duetHome1) {
+    // Đo lúc lao về gần xong (duet còn bật → chưa bị tách dancer đẩy):
+    // điểm đáp phải đúng slot gốc; về tới nơi rồi đi dạo/tách đẩy thì
+    // xê dịch là chuyện thường của sàn, không tính.
+    const prog = (time - guest.duet.phaseStartedAt) / (duetCfg.dashSeconds || 0.5);
+    if (prog >= 0.99) {
+      checkedReturn1 = true;
+      const back = Math.hypot(guest.group.position.x - duetHome1.x, guest.group.position.z - duetHome1.z);
+      check(back < 0.12, 'khách 1 lao về đúng slot gốc sau song ca (' + back.toFixed(3) + 'm)');
+    }
+  }
+  if (guest2.duet && guest2.duet.phase === 'exit' && !checkedReturn2 && duetHome2) {
+    const prog = (time - guest2.duet.phaseStartedAt) / (duetCfg.dashSeconds || 0.5);
+    if (prog >= 0.99) {
+      checkedReturn2 = true;
+      const back = Math.hypot(guest2.group.position.x - duetHome2.x, guest2.group.position.z - duetHome2.z);
+      check(back < 0.12, 'khách 2 lao về đúng slot gốc sau song ca (' + back.toFixed(3) + 'm)');
+    }
+  }
+  if (g && g.duet && g.duet.phase === 'dance') {
+    const gx = g.group.position.x - cage.centerX;
+    const gz = g.group.position.z - cage.centerZ;
+    const rGuest = Math.hypot(gx, gz);
+    const rPole = Math.hypot(
+      pole.group.position.x - cage.centerX, pole.group.position.z - cage.centerZ);
+    const guestAngle = Math.atan2(gz, gx);
+    const phaseGap = Math.abs(Math.abs(angDiff(guestAngle, pole.poleAngle)) - Math.PI);
+    const gap = Math.hypot(
+      g.group.position.x - pole.group.position.x, g.group.position.z - pole.group.position.z);
+    const faceExp = Math.atan2(cage.centerX - g.group.position.x, cage.centerZ - g.group.position.z);
+    const faceGap = Math.abs(angDiff(g.group.rotation.y, faceExp));
+    if (g === guest) sawDuet1 = true; else if (g === guest2) sawDuet2 = true;
+    if (i % 30 === 0) {
+      check(rGuest > 0.4 && rGuest < 0.7, 'khách ôm cột r~0,55m (' + rGuest.toFixed(3) + 'm)');
+      check(Math.abs(rPole - pc.orbitRadius) < 0.03, 'cô múa cột vẫn bám cột r=0,34m lúc song ca (' + rPole.toFixed(3) + 'm)');
+      check(phaseGap < 0.1, 'khách ngược pha với cô ấy (lệch ' + phaseGap.toFixed(3) + ' rad)');
+      check(gap > 0.7, 'hai người không chồng lấn (cách ' + gap.toFixed(3) + 'm)');
+      check(faceGap < 0.05, 'khách mặt hướng về cột (lệch ' + faceGap.toFixed(3) + ' rad)');
+      check(rGuest < 1.4, 'khách ở trong lồng (r < 1,4m)');
+    }
+  }
+  if (pole.poleOuting && pole.poleOuting.phase === 'mingle') {
+    const rPole = Math.hypot(
+      pole.group.position.x - cage.centerX, pole.group.position.z - cage.centerZ);
+    if (i % 30 === 0) check(rPole > 1.75, 'cô ấy ra ngoài đĩa lồng lúc giao lưu (r=' + rPole.toFixed(2) + 'm)');
+    sawMingle = true;
+  }
+  if (i % 120 === 0 && pole.poleOuting) {
+    pole.group.updateMatrixWorld(true);
+    pole.headGroup.getWorldPosition(headWorld7);
+    check(headWorld7.y > 1.0 && headWorld7.y < 2.3, 'lúc giao lưu vương miện vẫn ở độ cao đầu (' + headWorld7.y.toFixed(2) + 'm)');
+    finiteVec3(headWorld7, 'headGroup world lúc giao lưu');
+  }
+}
+check(firstStart !== null, 'show 1 đã bắt đầu');
+check(sawDuet1, 'show 1 có đoạn song ca trong lồng');
+check(sawMingle, 'show 1 có đoạn giao lưu ngoài sàn');
+check(secondStart !== null, 'show 2 bắt đầu sau khi show 1 hết (xếp hàng FIFO, không chồng)');
+check(sawDuet2, 'show 2 có đoạn song ca với khách 2');
+check(checkedReturn1 && checkedReturn2, 'cả 2 khách đều về slot gốc sau song ca');
+check(pole.skillKind === null, 'hết cả 2 show, skillKind=null');
+check(pole.poleOuting === null, 'hết show, poleOuting=null');
+check(pole.poleShow === null, 'hết show, poleShow=null');
+check(mgr.skillQueue.length === 0, 'hết show, hàng đợi rỗng');
+{
+  const rPole = Math.hypot(pole.group.position.x - cage.centerX, pole.group.position.z - cage.centerZ);
+  check(Math.abs(rPole - pc.orbitRadius) < 0.03, 'hết show cô ấy về đúng cột r=0,34m (' + rPole.toFixed(3) + 'm)');
+}
+check(Math.abs((duetCfg.durationSeconds + outCfg.durationSeconds) - 16) < 1e-9,
+  'tổng buổi diễn = song ca 6s + giao lưu 10s = 16s');
+
+// Edge A: top donor tự tặng gift lớn (guest=null) → bỏ đoạn song ca,
+// chỉ giao lưu, thời lượng = outing 10s, outing bắt đầu ngay.
+console.log('[7a] Edge: top donor tự tặng → chỉ giao lưu, không song ca');
+check(mgr.enqueueSkill(pole, 'grand', time, null), 'enqueueSkill(grand, guest=null) nhận');
+time += dt;
+mgr.update(dt, time, ((time * bpm) / 60) % 1);
+check(!pole.poleShow, 'không có poleShow khi guest=null');
+check(!!pole.poleOuting, 'outing bắt đầu ngay khi không song ca');
+check(Math.abs((pole.skillUntil - time) - outCfg.durationSeconds) < 0.2,
+  'thời lượng edge A = outing 10s (' + (pole.skillUntil - time).toFixed(2) + 's)');
+{
+  const endA = time + outCfg.durationSeconds + 1;
+  while (time < endA) {
+    time += dt;
+    mgr.update(dt, time, ((time * bpm) / 60) % 1);
+    finiteVec3(pole.group.position, 'edge A vị trí pole');
+  }
+}
+check(pole.skillKind === null && pole.poleOuting === null, 'hết edge A, sạch trạng thái');
+{
+  const rPole = Math.hypot(pole.group.position.x - cage.centerX, pole.group.position.z - cage.centerZ);
+  check(Math.abs(rPole - pc.orbitRadius) < 0.03, 'hết edge A cô ấy về cột r=0,34m (' + rPole.toFixed(3) + 'm)');
+}
+
+// Edge B: người tặng chưa có dancer → applyGift tạo dancer, xếp show có
+// khách đúng người đó, và KHÔNG bị kéo lên bục VIP (buổi diễn thay VIP).
+console.log('[7b] Edge: người tặng mới → tạo dancer + xếp show + không lên bục VIP');
+const tierLarge = {
+  id: 'large',
+  effects: {
+    danceBoost: true, smallEffect: false, cameraZoom: true,
+    changeCharacter: true, spotlight: true, fireworks: true, vipPodium: true,
+  },
+};
+const fresh = mgr.applyGift(
+  { uniqueId: 'fresh-gifter-1', name: 'Moi Toi' },
+  tierLarge,
+  time,
+  { totalDiamonds: 500, giftName: 'Super Star' },
+);
+check(!!fresh && mgr.dancers.has('fresh-gifter-1'), 'applyGift tạo dancer cho người tặng mới');
+check(fresh.mode === 'dance', 'người tặng gift lớn không bị kéo lên bục VIP (mode=' + fresh.mode + ')');
+{
+  const q = mgr.skillQueue.find((item) => item.kind === 'grand');
+  check(!!q, 'show gift lớn đã xếp hàng');
+  check(q && q.guest === fresh, 'khách của show đúng là dancer người tặng mới');
+  check(q && q.dancer === pole, 'show chạy trên người múa cột');
+}
+{
+  const endB = time + duetCfg.durationSeconds + outCfg.durationSeconds + 1;
+  while (time < endB) {
+    time += dt;
+    mgr.update(dt, time, ((time * bpm) / 60) % 1);
+    finiteVec3(pole.group.position, 'edge B vị trí pole');
+    finiteVec3(fresh.group.position, 'edge B vị trí khách mới');
+  }
+}
+check(pole.skillKind === null && pole.poleOuting === null && pole.poleShow === null,
+  'hết edge B, sạch trạng thái');
+check(!fresh.duet, 'hết edge B, khách mới không còn duet');
 
 console.log(failures === 0 ? 'PASS: pole-model-harness' : 'FAIL: ' + failures + ' kiểm chứng rớt');
 process.exit(failures === 0 ? 0 : 1);
